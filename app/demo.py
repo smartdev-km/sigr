@@ -180,7 +180,7 @@ def _route_online(points):
         try:
             req = urllib.request.Request(f"{base}{coords}?overview=full&geometries=geojson&continue_straight=true",
                                          headers={"User-Agent": "sigr-demo-seed"})
-            data = json.load(urllib.request.urlopen(req, timeout=20))
+            data = json.load(urllib.request.urlopen(req, timeout=10))
             if data.get("code") == "Ok" and data.get("routes"):
                 r = data["routes"][0]
                 if best is None or r["distance"] < best[0]:

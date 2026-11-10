@@ -1,3 +1,4 @@
+{% from "_icons.html" import icon %}
 <!doctype html>
 <html lang="fr">
 <head>
@@ -19,16 +20,16 @@
   <aside class="sidebar">
     <div><div class="name">SIGR-COMORES</div><div class="sub">Réseau routier</div></div>
     <nav class="nav">
-      <a href="{{ url_for('dashboard.index') }}" class="{{ 'active' if request.endpoint == 'dashboard.index' }}">Tableau de bord</a>
-      <a href="{{ url_for('routes.index') }}" class="{{ 'active' if request.blueprint == 'routes' }}">Routes</a>
-      {% if can('ouvrages') %}<a href="{{ url_for('ouvrages.index') }}" class="{{ 'active' if request.blueprint == 'ouvrages' }}">Ouvrages</a>{% endif %}
-      {% if can('diagnostic') %}<a href="{{ url_for('diagnostic.index') }}" class="{{ 'active' if request.blueprint == 'diagnostic' }}">Diagnostic</a>{% endif %}
-      {% if can('travaux') %}<a href="{{ url_for('works.index') }}" class="{{ 'active' if request.blueprint == 'works' }}">Travaux</a>{% endif %}
-      {% if can('entretien') %}<a href="{{ url_for('maintenance.index') }}" class="{{ 'active' if request.blueprint == 'maintenance' }}">Entretien</a>{% endif %}
-      {% if can('marches') %}<a href="{{ url_for('marches.index') }}" class="{{ 'active' if request.blueprint in ('marches', 'entreprises') }}">Marchés</a>{% endif %}
-      {% if can('rapport') %}<a href="{{ url_for('reports.index') }}" class="{{ 'active' if request.blueprint == 'reports' }}">Rapport</a>{% endif %}
-      {% if can('carte') %}<a href="{{ url_for('map.index') }}" class="{{ 'active' if request.blueprint == 'map' }}">Carte</a>{% endif %}
-      {% if current_user.is_admin %}<a href="{{ url_for('users.index') }}" class="{{ 'active' if request.blueprint == 'users' }}">Utilisateurs</a>{% endif %}
+      <a href="{{ url_for('dashboard.index') }}" class="{{ 'active' if request.endpoint == 'dashboard.index' }}">{{ icon('dashboard') }}<span>Tableau de bord</span></a>
+      <a href="{{ url_for('routes.index') }}" class="{{ 'active' if request.blueprint == 'routes' }}">{{ icon('routes') }}<span>Routes</span></a>
+      {% if can('ouvrages') %}<a href="{{ url_for('ouvrages.index') }}" class="{{ 'active' if request.blueprint == 'ouvrages' }}">{{ icon('ouvrages') }}<span>Ouvrages</span></a>{% endif %}
+      {% if can('diagnostic') %}<a href="{{ url_for('diagnostic.index') }}" class="{{ 'active' if request.blueprint == 'diagnostic' }}">{{ icon('diagnostic') }}<span>Diagnostic</span></a>{% endif %}
+      {% if can('travaux') %}<a href="{{ url_for('works.index') }}" class="{{ 'active' if request.blueprint == 'works' }}">{{ icon('travaux') }}<span>Travaux</span></a>{% endif %}
+      {% if can('entretien') %}<a href="{{ url_for('maintenance.index') }}" class="{{ 'active' if request.blueprint == 'maintenance' }}">{{ icon('entretien') }}<span>Entretien</span></a>{% endif %}
+      {% if can('marches') %}<a href="{{ url_for('marches.index') }}" class="{{ 'active' if request.blueprint in ('marches', 'entreprises') }}">{{ icon('marches') }}<span>Marchés</span></a>{% endif %}
+      {% if can('rapport') %}<a href="{{ url_for('reports.index') }}" class="{{ 'active' if request.blueprint == 'reports' }}">{{ icon('rapport') }}<span>Rapport</span></a>{% endif %}
+      {% if can('carte') %}<a href="{{ url_for('map.index') }}" class="{{ 'active' if request.blueprint == 'map' }}">{{ icon('carte') }}<span>Carte</span></a>{% endif %}
+      {% if current_user.is_admin %}<a href="{{ url_for('users.index') }}" class="{{ 'active' if request.blueprint == 'users' }}">{{ icon('utilisateurs') }}<span>Utilisateurs</span></a>{% endif %}
     </nav>
     <div class="user-box">
       <div class="who"><a href="{{ url_for('profile.index') }}" class="user-link" title="Mon profil"><strong>{{ current_user.full_name }}</strong></a><br><span class="role">{{ current_user.role_label }}</span></div>

@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_wtf import FlaskForm
 from wtforms import BooleanField, PasswordField, StringField
@@ -15,7 +15,7 @@ bp = Blueprint("auth", __name__)
 class LoginForm(FlaskForm):
     username = StringField("Nom d'utilisateur", validators=[DataRequired(), Length(max=64)])
     password = PasswordField("Mot de passe", validators=[DataRequired()])
-    remember = BooleanField("Rester connecté")
+    remember = BooleanField("Rester connecté (30 jours)")
 
 
 def _safe_next(target):
@@ -36,6 +36,7 @@ def login():
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data.strip()).first()
         if user and user.is_active and user.check_password(form.password.data):
+            session.permanent = bool(form.remember.data)   # session durable seulement si la case est cochée
             login_user(user, remember=form.remember.data)
             user.last_login = utcnow()
             db.session.commit()

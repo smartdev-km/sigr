@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 IS_PROD = os.environ.get("APP_ENV", "").lower() == "production"
@@ -28,6 +29,11 @@ class Config:
     SESSION_COOKIE_SECURE = IS_PROD
     REMEMBER_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_SECURE = IS_PROD
+    REMEMBER_COOKIE_SAMESITE = "Lax"
+    # « Rester connecté » : 30 jours, prolongés à chaque visite
+    REMEMBER_COOKIE_DURATION = timedelta(days=30)
+    REMEMBER_COOKIE_REFRESH_EACH_REQUEST = True
+    PERMANENT_SESSION_LIFETIME = timedelta(days=30)
     PREFERRED_URL_SCHEME = "https" if IS_PROD else "http"
 
 

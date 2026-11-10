@@ -12,11 +12,7 @@ services:
     plan: free            # le service gratuit se met en veille après 15 min d'inactivité
     buildCommand: pip install -r requirements.txt
     # crée/met à jour les tables, crée le 1er administrateur si besoin, puis démarre l'application
-    startCommand: >-
-      flask --app run init-db &&
-      flask --app run bootstrap-admin &&
-      ( [ "$SEED_DEMO" != "1" ] || flask --app run seed-demo ) &&
-      gunicorn run:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 60 --access-logfile -
+    startCommand: bash start.sh   # voir start.sh : tables, administrateur, données de démo (SEED_DEMO), puis Gunicorn
     healthCheckPath: /healthz
     envVars:
       - key: PYTHON_VERSION
