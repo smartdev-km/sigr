@@ -37,6 +37,18 @@ python run.py        # http://127.0.0.1:5000
 Données de démonstration (fictives, voir `app/demo.py`) : `flask seed-demo` (`--offline` pour ne pas interroger
 Internet). Elles ne sont jamais ajoutées automatiquement.
 
+## Lancement rapide sous Windows
+
+Double-cliquez sur **`Lancer-SIGR.bat`** (à la racine du projet). Il installe tout ce qu'il faut, prépare la base,
+démarre le serveur et ouvre le site dans le navigateur (http://127.0.0.1:5001).
+
+- **Prérequis** : Python 3.10 ou plus récent (https://www.python.org/downloads/, cocher « Add python.exe to PATH »).
+- **Première fois** : le fichier crée l'environnement Python, installe les dépendances (1 à 2 minutes), vous demande de
+  créer le compte administrateur, puis propose d'ajouter des données de démonstration.
+- **Fois suivantes** : le site s'ouvre en quelques secondes.
+- **Pour arrêter** : fermez la fenêtre noire (ou Ctrl+C).
+- Le port se change en haut du fichier (`set "PORT=5001"`).
+
 ### Configuration
 
 Variables d'environnement, à définir dans le terminal avant de lancer l'application :
