@@ -18,7 +18,10 @@
 {% include "_flash.html" %}
 <div class="layout">
   <aside class="sidebar">
-    <div><div class="name">SIGR-COMORES</div><div class="sub">Réseau routier</div></div>
+    <a class="brand-link" href="{{ url_for('dashboard.index') }}" title="Retour au tableau de bord" aria-label="SIGR-COMORES : retour au tableau de bord">
+      <img class="brand-logo" src="{{ url_for('static', filename='favicon.svg') }}" width="36" height="36" alt="">
+      <span class="brand-text"><span class="name">SIGR-COMORES</span><span class="sub">Réseau routier</span></span>
+    </a>
     <nav class="nav">
       <a href="{{ url_for('dashboard.index') }}" class="{{ 'active' if request.endpoint == 'dashboard.index' }}">{{ icon('dashboard') }}<span>Tableau de bord</span></a>
       <a href="{{ url_for('routes.index') }}" class="{{ 'active' if request.blueprint == 'routes' }}">{{ icon('routes') }}<span>Routes</span></a>

@@ -388,3 +388,13 @@ a.hrow:hover .hl,a.wrow:hover .wt{color:var(--primary)}
 .nav a .ico{flex:none;opacity:.8;transition:opacity .15s}
 .nav a:hover .ico,.nav a.active .ico{opacity:1}
 .nav a.active .ico{color:var(--primary)}
+
+/* Logo + nom cliquables : retour au tableau de bord */
+.sidebar .brand-link{display:flex;align-items:center;gap:.7rem;text-decoration:none;color:inherit;border-radius:10px;padding:.2rem;margin:-.2rem;transition:background .15s}
+.sidebar .brand-link:hover,.sidebar .brand-link:focus-visible{background:var(--side-hover)}
+.brand-logo{flex:none;border-radius:10px;display:block}
+.brand-text{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.brand-text .name{display:block}
+.brand-text .sub{display:block}
+.brand-text .name{font-size:1rem;letter-spacing:.03em;white-space:nowrap}
+.brand-text .sub{white-space:nowrap}
