@@ -24,7 +24,20 @@
     <div id="rp-empty" class="empty" hidden>Cette route n'a pas encore de tracé sur la carte.</div>
   </div>
 
+  <div class="diag-points" id="diag-points" hidden>
+    <div class="dp-head"><strong>📍 Points signalés au dernier diagnostic</strong> <span class="hint" id="dp-meta"></span></div>
+    <p class="hint">Ces points sont aussi affichés sur la carte. Cliquez sur « Planifier » pour préremplir l'intervention à partir d'un point.</p>
+    <ul class="dp-list" id="dp-list"></ul>
+  </div>
+
   {{ field(form.title) }}
+  <div class="form-grid" id="loc-fields">
+    <div>{{ form.pk_start.label }}<div class="input-group">{{ form.pk_start(step="any", min="0", inputmode="decimal", placeholder="0.000") }}<span class="suffix">km</span></div>
+      {% for e in form.pk_start.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+    <div>{{ form.pk_end.label }}<div class="input-group">{{ form.pk_end(step="any", min="0", inputmode="decimal", placeholder="0.000") }}<span class="suffix">km</span></div>
+      {% for e in form.pk_end.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+  </div>
+  <p class="hint" style="margin-top:-.3rem">Localisation sur la route (facultative) : PK de début et de fin des travaux, ou un seul PK pour un point.</p>
   <div class="form-grid">
     <div class="date-field">{{ form.planned_date.label }}
       <div class="input-group">{{ form.planned_date(type="date") }}<button type="button" class="suffix date-btn" aria-label="Ouvrir le calendrier">📅</button></div>
@@ -37,7 +50,16 @@
     <div>{{ form.cost_kmf.label }}
       <div class="input-group">{{ form.cost_kmf(min="0", step="1", inputmode="numeric", placeholder="0") }}<span class="suffix">KMF</span></div>
       {% for e in form.cost_kmf.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
-    {{ field(form.contractor) }}
+    <div>{{ form.entreprise_id.label }}{{ form.entreprise_id() }}
+      {% for e in form.entreprise_id.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+      {% if form.has_entreprises %}<label class="check ent-all"><input type="checkbox" id="ent-all"> Afficher aussi les entreprises des autres îles</label>
+      <p class="hint" id="ent-filter-note"></p>{% else %}<p class="hint">Aucune entreprise enregistrée.</p>{% endif %}
+      {% if can('marches', 'write') %}<p class="hint"><a class="code-link" href="{{ url_for('entreprises.create') }}" target="_blank" rel="noopener">+ Ajouter une entreprise</a> (nouvel onglet, puis rechargez cette page)</p>
+      {% elif not form.has_entreprises %}<p class="hint">Demandez à un administrateur d'enregistrer les entreprises (menu Marchés).</p>{% endif %}</div>
+    {% if can('travaux') %}<div>{{ form.work_id.label }}{{ form.work_id() }}
+      {% for e in form.work_id.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+      <p class="hint" id="work-note">Facultatif : rattache l'intervention à un chantier de la même route.</p></div>
+    {% else %}{{ form.work_id(hidden=True) }}{% endif %}
     <div>{{ form.condition_after.label }}{{ form.condition_after() }}
       <p class="hint">Appliqué à la route quand le statut passe à « Terminé ».</p></div>
   </div>
@@ -56,6 +78,13 @@
 <script>window.ROUTE_GEO = {{ route_geo|tojson }};</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="{{ url_for('static', filename='js/routing.js') }}"></script>
+<script>
+  window.ISSUES_BY_ROUTE = {{ issues_by_route|tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/geo_utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/route_preview.js') }}"></script>
+<script src="{{ url_for('static', filename='js/maint_issues.js') }}"></script>
+<script src="{{ url_for('static', filename='js/maint_entreprise.js') }}"></script>
+<script src="{{ url_for('static', filename='js/maint_work.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dates.js') }}"></script>
 {% endblock %}

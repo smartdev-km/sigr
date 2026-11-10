@@ -78,6 +78,8 @@ DEFECTS = {
     "ouvrage": "Ouvrage d'art endommagé",
 }
 
+ISSUE_SEVERITY = {"mineur": "Mineur", "important": "Important", "critique": "Critique"}
+
 RECOMMENDATIONS = {
     "aucune": "Aucune action",
     "preventif": "Entretien préventif",
@@ -285,13 +287,19 @@ class Maintenance(db.Model):
     description = db.Column(db.Text)
     planned_date = db.Column(db.Date, nullable=False)
     done_date = db.Column(db.Date)
+    pk_start = db.Column(db.Float)      # localisation sur la route (km depuis le début), facultative
+    pk_end = db.Column(db.Float)
     cost_kmf = db.Column(db.BigInteger)
-    contractor = db.Column(db.String(160))
+    contractor = db.Column(db.String(160))                         # nom de l'intervenant (copie du nom de l'entreprise)
+    entreprise_id = db.Column(db.Integer, db.ForeignKey("entreprise.id"), index=True)
+    work_id = db.Column(db.Integer, db.ForeignKey("work.id"), index=True)   # chantier auquel l'intervention se rattache (facultatif)
     condition_after = db.Column(db.String(20))  # état de la route après travaux
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"))
     created_at = db.Column(db.DateTime, default=utcnow)
     updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
+    entreprise = db.relationship("Entreprise", backref="maintenances")
+    work = db.relationship("Work", backref=db.backref("maintenances", order_by="Maintenance.planned_date.desc()"))
     route = db.relationship("Route", backref=db.backref("maintenances", cascade="all, delete-orphan",
                                                          order_by="Maintenance.planned_date.desc()"))
 
@@ -316,7 +324,7 @@ class Diagnostic(db.Model):
     updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     route = db.relationship("Route", backref=db.backref("diagnostics", cascade="all, delete-orphan",
-                                                         order_by="Diagnostic.inspected_on.desc()"))
+                                                         order_by="Diagnostic.inspected_on.desc(), Diagnostic.id.desc()"))
 
     @property
     def defect_list(self):
@@ -519,6 +527,41 @@ class Ouvrage(db.Model):
     @property
     def has_point(self):
         return self.lat is not None and self.lng is not None
+
+
+class DiagnosticIssue(db.Model):
+    """Point ou secteur à problème signalé dans un diagnostic (ex. « du PK 4 au PK 6 : affaissement »)."""
+    id = db.Column(db.Integer, primary_key=True)
+    diagnostic_id = db.Column(db.Integer, db.ForeignKey("diagnostic.id"), nullable=False, index=True)
+    kind = db.Column(db.String(20), nullable=False)       # clé de DEFECTS
+    severity = db.Column(db.String(12), nullable=False, default="important")
+    text = db.Column(db.String(300))
+    pk_start = db.Column(db.Float)                       # km depuis le début de la route
+    pk_end = db.Column(db.Float)                         # vide = point ; sinon secteur [pk_start, pk_end]
+    start_lat = db.Column(db.Float)
+    start_lng = db.Column(db.Float)
+    end_lat = db.Column(db.Float)
+    end_lng = db.Column(db.Float)
+
+    diagnostic = db.relationship("Diagnostic", backref=db.backref(
+        "issues", cascade="all, delete-orphan", order_by="DiagnosticIssue.pk_start, DiagnosticIssue.id"))
+
+    @property
+    def is_sector(self):
+        return self.pk_end is not None and self.pk_start is not None and self.pk_end > self.pk_start
+
+    @property
+    def where(self):
+        if self.pk_start is None:
+            return "—"
+        if self.is_sector:
+            return f"PK {self.pk_start:.3f} → {self.pk_end:.3f} km ({(self.pk_end - self.pk_start) * 1000:.0f} m)"
+        return f"PK {self.pk_start:.3f} km"
+
+    def as_dict(self):
+        return {"kind": self.kind, "severity": self.severity, "text": self.text or "", "pk_start": self.pk_start,
+                "pk_end": self.pk_end, "start_lat": self.start_lat, "start_lng": self.start_lng,
+                "end_lat": self.end_lat, "end_lng": self.end_lng}
 
 
 @login_manager.user_loader

@@ -327,8 +327,15 @@ def seed_demo(online=True, log=print):
         for (code, kind, status, title, desc, planned, done, cost, acr) in ENTRETIENS:
             db.session.add(Maintenance(route_id=by_code[code].id, kind=kind, status=status, title=title or MAINT_KINDS[kind],
                                        description=desc, planned_date=d(planned), done_date=d(done) if done is not None else None,
-                                       cost_kmf=cost, contractor=ent[acr].name if acr else None))
+                                       cost_kmf=cost, contractor=ent[acr].name if acr else None,
+                                       entreprise_id=ent[acr].id if acr else None))
             n["entretiens"] += 1
+
+    # rattache l'entretien de signalisation de la RN3 à son chantier de signalisation (exemple de lien)
+    wk = Work.query.filter_by(title="Signalisation et sécurité de la RN3").first()
+    mt = Maintenance.query.join(Route).filter(Route.code == "RN3", Maintenance.kind == "signalisation").first()
+    if wk and mt and mt.work_id is None:
+        mt.work_id = wk.id
 
     db.session.commit()
     return n

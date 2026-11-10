@@ -80,7 +80,14 @@ def _apply_entreprise(form, e):
 def index():
     q = request.args.get("q", "").strip()
     state = request.args.get("state", "")
+    island = request.args.get("island", "")
     query = Entreprise.query
+    if island in ISLANDS:
+        query = query.filter(Entreprise.island == island)
+    elif island == "none":                      # île non précisée
+        query = query.filter(db.or_(Entreprise.island.is_(None), Entreprise.island == ""))
+    else:
+        island = ""
     if q:
         like = f"%{q}%"
         query = query.filter(db.or_(Entreprise.name.ilike(like), Entreprise.acronym.ilike(like),
@@ -90,7 +97,10 @@ def index():
     elif state == "inactive":
         query = query.filter(Entreprise.active.is_(False))
     items = query.order_by(Entreprise.name).all()
-    return render_template("entreprises_list.html", items=items, q=q, state=state, kmf=_kmf)
+    counts = {i: Entreprise.query.filter(Entreprise.island == i).count() for i in ISLANDS}
+    counts["none"] = Entreprise.query.filter(db.or_(Entreprise.island.is_(None), Entreprise.island == "")).count()
+    return render_template("entreprises_list.html", items=items, q=q, state=state, island=island, islands=ISLANDS,
+                           counts=counts, kmf=_kmf)
 
 
 @bp_e.route("/nouvelle", methods=["GET", "POST"])

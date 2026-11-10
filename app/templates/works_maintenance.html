@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Travaux · Entretien{% endblock %}
+{% block content %}
+{% set st_colors = {'planifie':'var(--accent)','en_cours':'var(--moyen)','termine':'var(--bon)','annule':'var(--muted)'} %}
+<div class="page-head">
+  <div><h1>Travaux</h1><p>Interventions d'entretien · {{ pagination.total }} résultat{{ 's' if pagination.total > 1 }}</p></div>
+  {% if can('entretien', 'write') %}<a class="btn" href="{{ url_for('maintenance.create') }}">+ Planifier un entretien</a>{% endif %}
+</div>
+{% include "_works_tabs.html" %}
+<p class="hint" style="margin:-.4rem 0 1rem">Vue en lecture seule. Les interventions se gèrent dans le module <a class="code-link" href="{{ url_for('maintenance.index') }}">Entretien</a> ; une intervention peut être rattachée à un chantier.</p>
+
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Planifiées</div><div class="value">{{ st.planned }}</div></div>
+  <div class="card kpi"><div class="label">En cours</div><div class="value">{{ st.ongoing }}</div></div>
+  <div class="card kpi warn"><div class="label">En retard</div><div class="value">{{ st.late }}</div></div>
+  <div class="card kpi"><div class="label">Terminées</div><div class="value">{{ st.done }}</div></div>
+  <div class="card kpi"><div class="label">Rattachées à un chantier</div><div class="value">{{ st.linked }} <span class="unit">/ {{ st.total }}</span></div></div>
+</div>
+
+<form class="card filters" method="get">
+  <input type="text" name="q" value="{{ q }}" placeholder="Rechercher (route, intitulé, entreprise)…">
+  <select name="status"><option value="">Tous les statuts</option>{% for k, v in statuses.items() %}<option value="{{ k }}" {{ 'selected' if k == status }}>{{ v }}</option>{% endfor %}</select>
+  <select name="link"><option value="">Rattachées ou non</option>
+    <option value="oui" {{ 'selected' if link == 'oui' }}>Rattachées à un chantier</option>
+    <option value="non" {{ 'selected' if link == 'non' }}>Non rattachées</option></select>
+  <button class="btn" type="submit">Filtrer</button>
+  {% if args %}<a class="btn ghost" href="{{ url_for('works.maintenance_tab') }}">Réinitialiser</a>{% endif %}
+</form>
+
+<div class="card">
+  {% if pagination.items %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Route</th><th>Intervention</th><th>Date prévue</th><th>Statut</th><th>Chantier</th><th>Coût</th><th></th></tr></thead>
+    <tbody>
+    {% for m in pagination.items %}
+      <tr>
+        <td><a class="code-link" href="{{ url_for('routes.detail', route_id=m.route.id) }}"><strong>{{ m.route.code }}</strong></a></td>
+        <td>{{ kinds.get(m.kind, m.kind) }}{% if m.title and m.title != kinds.get(m.kind) %}<div class="hint">{{ m.title }}</div>{% endif %}
+          {% if m.pk_start is not none %}<div class="hint">📍 PK {{ '%.3f'|format(m.pk_start) }}{% if m.pk_end is not none and m.pk_end > m.pk_start %} → {{ '%.3f'|format(m.pk_end) }}{% endif %} km</div>{% endif %}</td>
+        <td>{{ m.planned_date.strftime('%d/%m/%Y') }}{% if m.is_late %} <span class="badge" style="background:var(--critique)">En retard</span>{% endif %}</td>
+        <td><span class="badge" style="background:{{ st_colors[m.status] }}">{{ statuses[m.status] }}</span></td>
+        <td>{% if m.work %}<a class="code-link" href="{{ url_for('works.edit', item_id=m.work.id) }}">{{ m.work.title }}</a>{% else %}<span class="hint">—</span>{% endif %}</td>
+        <td>{% if m.cost_kmf is not none %}{{ '{:,}'.format(m.cost_kmf).replace(',', ' ') }} KMF{% else %}—{% endif %}</td>
+        <td class="actions-cell"><div class="row-actions"><a class="btn ghost" href="{{ url_for('maintenance.edit', item_id=m.id) }}">Ouvrir</a></div></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if pagination.pages > 1 %}
+  <div class="pager">
+    {% if pagination.has_prev %}<a class="btn ghost" href="{{ url_for('works.maintenance_tab', **dict(args, page=pagination.prev_num)) }}">← Précédent</a>{% endif %}
+    <span>Page {{ pagination.page }} / {{ pagination.pages }}</span>
+    {% if pagination.has_next %}<a class="btn ghost" href="{{ url_for('works.maintenance_tab', **dict(args, page=pagination.next_num)) }}">Suivant →</a>{% endif %}
+  </div>{% endif %}
+  {% else %}<div class="empty">Aucune intervention.</div>{% endif %}
+</div>
+{% endblock %}

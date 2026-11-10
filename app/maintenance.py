@@ -4,11 +4,11 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from flask_wtf import FlaskForm
 from sqlalchemy import func
-from wtforms import DateField, IntegerField, SelectField, StringField, TextAreaField
+from wtforms import DateField, DecimalField, IntegerField, SelectField, StringField, TextAreaField
 from wtforms.validators import DataRequired, Length, NumberRange, Optional, ValidationError
 
 from . import db
-from .models import CONDITIONS, MAINT_KINDS, MAINT_STATUS, ROUTE_TYPES, Maintenance, Route
+from .models import CONDITIONS, MAINT_KINDS, Entreprise, Work, MAINT_STATUS, ROUTE_TYPES, Maintenance, Route
 from .routes import admin_required, route_geo as _route_geo
 
 bp = Blueprint("maintenance", __name__, url_prefix="/entretien")
@@ -23,8 +23,11 @@ class MaintenanceForm(FlaskForm):
                         render_kw={"placeholder": "Facultatif : par défaut, le type d'intervention"})
     planned_date = DateField("Date prévue", validators=[DataRequired(message="Date requise.")])
     done_date = DateField("Date de réalisation", validators=[Optional()])
+    pk_start = DecimalField("PK début", places=3, validators=[Optional(), NumberRange(min=0, max=5000)])
+    pk_end = DecimalField("PK fin", places=3, validators=[Optional(), NumberRange(min=0, max=5000)])
     cost_kmf = IntegerField("Coût estimé / réel", validators=[Optional(), NumberRange(min=0, max=10**12)])
-    contractor = StringField("Entreprise / Intervenant", validators=[Optional(), Length(max=160)])
+    entreprise_id = SelectField("Entreprise / Intervenant", coerce=int, validators=[Optional()])
+    work_id = SelectField("Chantier associé", coerce=int, validators=[Optional()])
     condition_after = SelectField("État de la route après travaux",
                                   choices=[("", "— Ne pas modifier —")] + list(CONDITIONS.items()),
                                   validators=[Optional()])
@@ -33,10 +36,60 @@ class MaintenanceForm(FlaskForm):
     def __init__(self, *a, **kw):
         super().__init__(*a, **kw)
         self.route_id.choices = [(r.id, f"{r.code} – {r.name}") for r in Route.query.order_by(Route.code)]
+        # entreprises enregistrées (actives, plus celle déjà choisie si elle a été désactivée depuis)
+        cur = kw.get("obj")
+        keep = getattr(cur, "entreprise_id", None)
+        q = Entreprise.query.filter(db.or_(Entreprise.active.is_(True), Entreprise.id == keep)).order_by(Entreprise.name)
+        # 3e élément = attributs de l'option : l'île sert au filtrage côté navigateur
+        self.entreprise_id.choices = [(0, "— Aucune —", {"data-island": ""})] + [
+            (e.id, e.label, {"data-island": e.island or ""}) for e in q]
+        # chantiers (non annulés) : le navigateur n'affiche que ceux de la route choisie (data-route)
+        keep_w = getattr(cur, "work_id", None)
+        wq = Work.query.filter(db.or_(Work.status != "annule", Work.id == keep_w)).order_by(Work.route_id, Work.title)
+        if not current_user.can("travaux"):         # pas d'accès aux chantiers : on ne garde que le chantier déjà rattaché
+            wq = Work.query.filter(Work.id == keep_w) if keep_w else Work.query.filter(Work.id == -1)
+        self.work_id.choices = [(0, "— Aucun chantier —", {"data-route": ""})] + [
+            (w.id, f"{w.route.code} · {w.title}", {"data-route": str(w.route_id)}) for w in wq]
+        self.has_works = wq.count() > 0
+        legacy = getattr(cur, "contractor", None)
+        self.has_entreprises = q.count() > 0
+        if cur is not None and legacy and not keep:   # ancienne saisie libre : on la conserve
+            self.entreprise_id.choices.append((-1, f"{legacy} (non référencée)", {"data-island": ""}))
+
+    def validate(self, extra_validators=None):
+        ok = super().validate(extra_validators)
+        w = db.session.get(Work, self.work_id.data) if self.work_id.data else None
+        if w is not None and w.route_id != self.route_id.data:
+            self.work_id.errors = list(self.work_id.errors) + ["Le chantier doit appartenir à la même route que l'intervention."]
+            ok = False
+        return ok
+
+    def validate_pk_end(self, field):
+        if field.data is not None and self.pk_start.data is not None and field.data < self.pk_start.data:
+            raise ValidationError("Le PK de fin doit être supérieur ou égal au PK de début.")
 
     def validate_done_date(self, field):
         if field.data and self.planned_date.data and field.data < self.planned_date.data:
             raise ValidationError("La réalisation ne peut pas précéder la date prévue.")
+
+
+def issues_by_route():
+    """Points / secteurs à problème du DERNIER diagnostic de chaque route (si l'utilisateur voit les diagnostics)."""
+    from .models import DEFECTS, ISSUE_SEVERITY, Diagnostic
+    if not current_user.can("diagnostic"):
+        return {}
+    latest = {}
+    for dg in Diagnostic.query.order_by(Diagnostic.inspected_on, Diagnostic.id):
+        latest[dg.route_id] = dg
+    out = {}
+    for rid, dg in latest.items():
+        if dg.issues:
+            out[rid] = {"date": dg.inspected_on.strftime("%d/%m/%Y"), "inspector": dg.inspector or "",
+                        "diagnostic_id": dg.id,
+                        "items": [{**i.as_dict(), "id": i.id, "label": DEFECTS.get(i.kind, i.kind),
+                                   "severity_label": ISSUE_SEVERITY.get(i.severity, i.severity), "where": i.where}
+                                  for i in dg.issues]}
+    return out
 
 
 def _apply(form, m):
@@ -47,8 +100,18 @@ def _apply(form, m):
     m.description = (form.description.data or "").strip() or None
     m.planned_date = form.planned_date.data
     m.done_date = form.done_date.data
+    m.pk_start = float(form.pk_start.data) if form.pk_start.data is not None else None
+    m.pk_end = float(form.pk_end.data) if form.pk_end.data is not None else None
     m.cost_kmf = form.cost_kmf.data
-    m.contractor = (form.contractor.data or "").strip() or None
+    m.work_id = form.work_id.data or None
+    eid = form.entreprise_id.data
+    if eid and eid > 0:                      # entreprise choisie dans la liste
+        e = db.session.get(Entreprise, eid)
+        m.entreprise_id, m.contractor = e.id, e.name
+    elif eid == -1:                          # ancienne saisie libre conservée telle quelle
+        m.entreprise_id = None
+    else:
+        m.entreprise_id, m.contractor = None, None
     m.condition_after = form.condition_after.data or None
     if m.status == "termine":
         m.done_date = m.done_date or date.today()
@@ -125,6 +188,10 @@ def create():
         if rid and db.session.get(Route, rid):
             form.route_id.data = rid
         form.planned_date.data = date.today()
+        wid = request.args.get("work_id", type=int)
+        wk = db.session.get(Work, wid) if wid else None
+        if wk:                                     # « + Planifier une intervention » depuis la fiche d'un chantier
+            form.route_id.data, form.work_id.data = wk.route_id, wk.id
         k = request.args.get("kind", "")
         if k in MAINT_KINDS:
             form.kind.data = k
@@ -136,7 +203,7 @@ def create():
         db.session.commit()
         flash("Intervention enregistrée.", "success")
         return redirect(url_for("maintenance.index"))
-    return render_template("maintenance_form.html", form=form, item=None, route_geo=_route_geo())
+    return render_template("maintenance_form.html", form=form, item=None, route_geo=_route_geo(with_geom=True), issues_by_route=issues_by_route())
 
 
 @bp.route("/<int:item_id>", methods=["GET", "POST"])
@@ -144,12 +211,15 @@ def create():
 def edit(item_id):
     m = db.get_or_404(Maintenance, item_id)
     form = MaintenanceForm(obj=m)
+    if request.method == "GET":
+        form.entreprise_id.data = m.entreprise_id or (-1 if m.contractor else 0)
+        form.work_id.data = m.work_id or 0
     if form.validate_on_submit():
         _apply(form, m)
         db.session.commit()
         flash("Intervention mise à jour.", "success")
         return redirect(url_for("maintenance.index"))
-    return render_template("maintenance_form.html", form=form, item=m, route_geo=_route_geo())
+    return render_template("maintenance_form.html", form=form, item=m, route_geo=_route_geo(with_geom=True), issues_by_route=issues_by_route())
 
 
 @bp.route("/<int:item_id>/supprimer", methods=["POST"])

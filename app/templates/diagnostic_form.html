@@ -33,6 +33,15 @@
     </div>
   </div>
 
+  <div class="issues-box">
+    <div class="issues-head"><strong>Points et secteurs à problème</strong>
+      <button type="button" class="btn ghost" id="add-issue">+ Ajouter un point / secteur</button></div>
+    <p class="hint">Précisez <em>où</em> sont les problèmes : un <strong>point</strong> (ex. un nid-de-poule au PK 3,2) ou un <strong>secteur</strong>
+      (ex. de Hahaya à Itsandra, du PK 4 au PK 6). Cliquez sur « 📍 Placer » puis sur la carte à droite (le PK se calcule seul), ou saisissez les PK.</p>
+    <div id="issue-list"></div>
+    {% for e in form.issues.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+  </div>
+
   {{ field(form.notes) }}
   <label class="check">{{ form.apply_condition() }} {{ form.apply_condition.label.text }}</label>
   <div class="actions" style="display:flex;gap:.6rem;flex-wrap:wrap">
@@ -47,6 +56,7 @@
   <div class="preview-head"><strong id="rp-title">Route sélectionnée</strong><span id="rp-meta" class="hint"></span></div>
   <div id="rp-map" class="detail-map" style="height:460px"></div>
   <div id="rp-empty" class="empty" hidden>Cette route n'a pas encore de tracé sur la carte.</div>
+  <div id="iss-status" class="hint" style="margin-top:.5rem"></div>
 </aside>
 </div>
 {% if item and current_user.may_delete %}
@@ -61,6 +71,12 @@
 <script>window.ROUTE_GEO = {{ route_geo|tojson }};</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="{{ url_for('static', filename='js/routing.js') }}"></script>
+<script>
+  window.ISSUE_KINDS = {{ issue_kinds|tojson }};
+  window.ISSUE_SEVERITY = {{ issue_severity|tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/geo_utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/route_preview.js') }}"></script>
+<script src="{{ url_for('static', filename='js/diag_issues.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dates.js') }}"></script>
 {% endblock %}

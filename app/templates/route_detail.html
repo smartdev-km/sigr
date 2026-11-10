@@ -51,7 +51,9 @@
   <div id="detail-map" class="detail-map"
        data-slat="{{ route.start_lat }}" data-slng="{{ route.start_lng }}"
        data-elat="{{ route.end_lat }}" data-elng="{{ route.end_lng }}"
-       data-vias='{{ route.waypoint_list|tojson|forceescape }}'></div>
+       data-vias='{{ route.waypoint_list|tojson|forceescape }}'
+       data-geom='{{ geom_pts|tojson|forceescape }}'
+       data-issues='{{ issues_js|tojson|forceescape }}'></div>
   <div class="coords"><span>A : {{ '%.5f'|format(route.start_lat) }}, {{ '%.5f'|format(route.start_lng) }}</span>
     <span>B : {{ '%.5f'|format(route.end_lat) }}, {{ '%.5f'|format(route.end_lng) }}</span></div>
   {% else %}
@@ -92,6 +94,23 @@
         <td class="actions-cell"><a class="btn ghost" href="{{ url_for('works.edit', item_id=w.id) }}">Détail</a></td></tr>
     {% endfor %}</tbody></table></div>
   {% else %}<div class="empty">Aucun chantier enregistré.</div>{% endif %}
+</div>
+{% endif %}
+
+{% if can('diagnostic') and last_diag and last_diag.issues %}
+<div class="card" style="margin-top:1rem">
+  <div class="page-head" style="margin-bottom:.6rem"><h2>Points et secteurs à problème</h2>
+    <span class="hint">Diagnostic du {{ last_diag.inspected_on.strftime('%d/%m/%Y') }}{% if last_diag.inspector %} · {{ last_diag.inspector }}{% endif %}</span></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>N°</th><th>Désordre</th><th>Gravité</th><th>Localisation</th><th>Description</th><th>Entretien</th></tr></thead>
+    <tbody>{% for it in last_diag.issues %}
+      <tr><td><span class="iss-dot" style="background:{{ sev_colors[it.severity] }}">{{ loop.index }}</span></td>
+        <td>{{ defects.get(it.kind, it.kind) }}</td>
+        <td><span class="badge" style="background:{{ sev_colors[it.severity] }}">{{ severities[it.severity] }}</span></td>
+        <td>{{ it.where }}</td><td>{{ it.text or '—' }}</td>
+        <td>{% if cover.get(it.id) %}{% for m in cover[it.id] %}<a class="badge" style="background:{{ 'var(--bon)' if m.status == 'termine' else 'var(--accent)' }}" href="{{ url_for('maintenance.edit', item_id=m.id) }}">{{ 'Réalisé' if m.status == 'termine' else 'Prévu' }}</a> {% endfor %}{% elif can('entretien', 'write') %}<a class="btn ghost" href="{{ url_for('maintenance.create', route_id=route.id) }}">Planifier</a>{% else %}<span class="hint">—</span>{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+  <p class="hint" style="margin-top:.5rem">Tracés en couleur sur la carte ci-dessus. <a class="code-link" href="{{ url_for('diagnostic.edit', item_id=last_diag.id) }}">Voir le diagnostic</a></p>
 </div>
 {% endif %}
 
@@ -141,6 +160,7 @@
 {% if route.start_lat is not none and route.end_lat is not none %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="{{ url_for('static', filename='js/routing.js') }}"></script>
+<script src="{{ url_for('static', filename='js/geo_utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/route_detail.js') }}"></script>
 {% endif %}
 {% endblock %}

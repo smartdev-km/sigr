@@ -214,7 +214,27 @@ def create():
 @login_required
 def detail(route_id):
     route = db.get_or_404(Route, route_id)
-    return render_template("route_detail.html", route=route, route_types=ROUTE_TYPES, conditions=CONDITIONS)
+    from .models import DEFECTS, ISSUE_SEVERITY
+    last_diag = route.diagnostics[0] if route.diagnostics else None   # le plus récent (tri par date décroissante)
+    show_issues = bool(last_diag and last_diag.issues and current_user.can("diagnostic"))
+    issues_js = [{**i.as_dict(), "label": DEFECTS.get(i.kind, i.kind), "where": i.where}
+                 for i in (last_diag.issues if show_issues else [])]
+    geom_pts = [[c[1], c[0]] for c in json.loads(route.geometry)["coordinates"]] if route.geometry else []
+    # interventions (non annulées) dont les PK recouvrent un point / secteur du diagnostic
+    cover = {}
+    if show_issues:
+        for it in last_diag.issues:
+            lo, hi = it.pk_start, (it.pk_end if it.pk_end is not None else it.pk_start)
+            for m in route.maintenances:
+                if m.status == "annule" or m.pk_start is None or lo is None:
+                    continue
+                m_hi = m.pk_end if m.pk_end is not None else m.pk_start
+                if m_hi >= lo - 0.05 and m.pk_start <= hi + 0.05:
+                    cover.setdefault(it.id, []).append(m)
+    return render_template("route_detail.html", route=route, route_types=ROUTE_TYPES, conditions=CONDITIONS,
+                           cover=cover, last_diag=last_diag if show_issues else None, issues_js=issues_js, geom_pts=geom_pts,
+                           defects=DEFECTS, severities=ISSUE_SEVERITY,
+                           sev_colors={"mineur": "var(--moyen)", "important": "var(--mauvais)", "critique": "var(--critique)"})
 
 
 @bp.route("/<int:route_id>", methods=["GET", "POST"])

@@ -95,6 +95,24 @@ def upgrade_schema():
     db.session.commit()
 
 
+def backfill_links():
+    """Rattache aux entreprises enregistrées les anciennes interventions saisies en texte libre (même nom)."""
+    from sqlalchemy import func
+
+    from .models import Entreprise, Maintenance
+
+    by_name = {e.name.strip().lower(): e for e in Entreprise.query.all()}
+    changed = 0
+    for m in Maintenance.query.filter(Maintenance.entreprise_id.is_(None), Maintenance.contractor.isnot(None)).all():
+        e = by_name.get((m.contractor or "").strip().lower())
+        if e:
+            m.entreprise_id = e.id
+            changed += 1
+    if changed:
+        db.session.commit()
+    return changed
+
+
 def register_cli(app):
     from .models import ISLANDS, Route, User
 
@@ -103,6 +121,7 @@ def register_cli(app):
         """Crée les tables."""
         db.create_all()
         upgrade_schema()
+        backfill_links()
         click.echo("Base de données initialisée.")
 
     @app.cli.command("bootstrap-admin")

@@ -398,3 +398,30 @@ a.hrow:hover .hl,a.wrow:hover .wt{color:var(--primary)}
 .brand-text .sub{display:block}
 .brand-text .name{font-size:1rem;letter-spacing:.03em;white-space:nowrap}
 .brand-text .sub{white-space:nowrap}
+
+/* Points et secteurs à problème (diagnostic) */
+.issues-box{margin:1.2rem 0 .6rem;padding-top:1rem;border-top:1px solid var(--border)}
+.issues-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap}
+.issue-row{display:grid;grid-template-columns:30px 1fr auto;gap:.6rem;align-items:start;margin-top:.6rem;padding:.7rem;border:1px solid var(--border);border-radius:10px;background:var(--bg)}
+.issue-row.armed{border-color:var(--primary);box-shadow:0 0 0 3px rgba(11,110,79,.15)}
+.iss-num{width:28px;height:28px;border-radius:50%;color:#fff;font-weight:700;display:grid;place-items:center;margin-top:.2rem;font-size:.85rem}
+.iss-main{display:flex;flex-direction:column;gap:.5rem;min-width:0}
+.iss-line{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.iss-line select{width:auto;flex:1 1 150px;min-width:0}
+.iss-pk{width:150px}
+.iss-text{width:100%}
+.iss-where{margin:0}
+#rp-map.placing,.placing{cursor:crosshair}
+.iss-dot{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;color:#fff;font-weight:700;font-size:.78rem}
+
+/* Points du diagnostic dans le formulaire d'entretien */
+.diag-points{margin:.8rem 0;padding:.9rem 1rem;border:1px dashed var(--border);border-radius:10px;background:var(--bg)}
+.dp-head{display:flex;gap:.6rem;flex-wrap:wrap;align-items:baseline}
+.dp-list{list-style:none;margin:.6rem 0 0;padding:0;display:flex;flex-direction:column;gap:.45rem}
+.dp-list li{display:grid;grid-template-columns:28px 1fr auto;gap:.6rem;align-items:center;padding:.5rem .6rem;border:1px solid var(--border);border-radius:8px;background:var(--card);cursor:pointer}
+.dp-list li:hover{border-color:var(--primary)}
+.dp-list li.on{border-color:var(--primary);box-shadow:0 0 0 3px rgba(11,110,79,.12)}
+.dp-list .iss-dot{width:26px;height:26px}
+.dp-list .dp-text{min-width:0}
+.dp-list .dp-text .hint{margin:.1rem 0 0}
+.flash-field{animation:flash 1.2s ease}

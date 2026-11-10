@@ -58,7 +58,7 @@
         <td>{{ d.inspected_on.strftime('%d/%m/%Y') }}</td>
         <td><a class="code-link" href="{{ url_for('routes.detail', route_id=d.route.id) }}"><strong>{{ d.route.code }}</strong></a></td>
         <td><span class="badge" style="background:{{ cond_colors[d.condition] }}">{{ conditions[d.condition] }}</span></td>
-        <td>{% set dl = d.defect_list %}{% if dl %}<span title="{{ dl|map('extract', defects)|join(', ') }}">{{ dl|length }} relevé{{ 's' if dl|length > 1 }}</span>{% else %}—{% endif %}</td>
+        <td>{% set dl = d.defect_list %}{% if dl %}<span title="{{ dl|map('extract', defects)|join(', ') }}">{{ dl|length }} relevé{{ 's' if dl|length > 1 }}</span>{% else %}—{% endif %}{% if d.issues %}<div class="hint">📍 {{ d.issues|length }} point{{ 's' if d.issues|length > 1 }}/secteur{{ 's' if d.issues|length > 1 }}</div>{% endif %}</td>
         <td>{{ recos[d.recommendation] }}</td>
         <td>{{ d.inspector or '—' }}</td>
         <td class="actions-cell"><div class="row-actions"><a class="btn ghost" href="{{ url_for('diagnostic.edit', item_id=d.id) }}">Détail</a></div></td>

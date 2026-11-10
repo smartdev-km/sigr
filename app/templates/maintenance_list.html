@@ -69,7 +69,7 @@
     {% for m in pagination.items %}
       <tr>
         <td><a class="code-link" href="{{ url_for('routes.detail', route_id=m.route.id) }}"><strong>{{ m.route.code }}</strong></a></td>
-        <td>{{ m.title }}{% if m.contractor %}<div class="hint">{{ m.contractor }}</div>{% endif %}
+        <td>{{ m.title }}{% if m.pk_start is not none %}<div class="hint">📍 PK {{ '%.3f'|format(m.pk_start) }}{% if m.pk_end is not none and m.pk_end > m.pk_start %} → {{ '%.3f'|format(m.pk_end) }}{% endif %} km</div>{% endif %}{% if m.work %}<div class="hint">🏗 Chantier : {% if can('travaux') %}<a class="code-link" href="{{ url_for('works.edit', item_id=m.work.id) }}">{{ m.work.title }}</a>{% else %}{{ m.work.title }}{% endif %}</div>{% endif %}{% if m.contractor %}<div class="hint">{% if m.entreprise_id and can('marches') %}<a class="code-link" href="{{ url_for('entreprises.detail', item_id=m.entreprise_id) }}">{{ m.contractor }}</a>{% else %}{{ m.contractor }}{% endif %}</div>{% endif %}
           {% if m.description %}<div class="hint">{{ m.description[:90] }}{{ '…' if m.description|length > 90 }}</div>{% endif %}</td>
         <td>{{ kinds.get(m.kind, m.kind) }}</td>
         <td>{{ m.planned_date.strftime('%d/%m/%Y') }}{% if m.is_late %} <span class="badge" style="background:var(--critique)">En retard</span>{% endif %}</td>

@@ -8,9 +8,12 @@
 {% include "_contract_tabs.html" %}
 <form class="card filters" method="get">
   <input type="text" name="q" value="{{ q }}" placeholder="Rechercher (nom, sigle, spécialité, contact)…">
+  <select name="island"><option value="">Toutes les îles</option>
+    {% for i in islands %}<option value="{{ i }}" {{ 'selected' if i == island }}>{{ i }} ({{ counts[i] }})</option>{% endfor %}
+    <option value="none" {{ 'selected' if island == 'none' }}>Île non précisée ({{ counts['none'] }})</option></select>
   <select name="state"><option value="">Toutes</option><option value="active" {{ 'selected' if state == 'active' }}>Actives</option><option value="inactive" {{ 'selected' if state == 'inactive' }}>Inactives</option></select>
   <button class="btn" type="submit">Filtrer</button>
-  {% if q or state %}<a class="btn ghost" href="{{ url_for('entreprises.index') }}">Réinitialiser</a>{% endif %}
+  {% if q or state or island %}<a class="btn ghost" href="{{ url_for('entreprises.index') }}">Réinitialiser</a>{% endif %}
 </form>
 <div class="card">
   {% if items %}

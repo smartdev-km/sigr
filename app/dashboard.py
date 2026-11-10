@@ -107,6 +107,8 @@ def build_dashboard(user, island=""):
                                "recent": [dg for dg in Diagnostic.query.order_by(
                                    Diagnostic.inspected_on.desc(), Diagnostic.id.desc()).limit(40).all()
                                    if dg.route_id in ids][:5]}
+        crit_pts = sum(1 for dg in last.values() for i in dg.issues if i.severity == "critique")
+        add("critical", "Points ou secteurs critiques signalés", crit_pts, url_for("diagnostic.index"), "diagnostic")
         add("info", "Routes jamais diagnostiquées", len(never), url_for("diagnostic.index"), "diagnostic")
         add("info", "Routes à réinspecter (> 1 an)", len(stale), url_for("diagnostic.index"), "diagnostic")
 

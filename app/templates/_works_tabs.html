@@ -1,0 +1,6 @@
+{% if can('entretien') %}
+<div class="tabs no-print">
+  <a class="tab {{ 'on' if request.endpoint in ('works.index', 'works.edit', 'works.create') }}" href="{{ url_for('works.index') }}">Chantiers</a>
+  <a class="tab {{ 'on' if request.endpoint == 'works.maintenance_tab' }}" href="{{ url_for('works.maintenance_tab') }}">Entretien</a>
+</div>
+{% endif %}

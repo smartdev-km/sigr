@@ -1,6 +1,6 @@
 from datetime import date
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from flask_wtf import FlaskForm
 from sqlalchemy import func
@@ -8,7 +8,7 @@ from wtforms import DateField, DecimalField, IntegerField, SelectField, StringFi
 from wtforms.validators import DataRequired, Length, NumberRange, Optional, ValidationError
 
 from . import db
-from .models import WORK_KINDS, WORK_OPEN_STATUS, WORK_STATUS, Marche, Route, Work
+from .models import MAINT_KINDS, MAINT_STATUS, WORK_KINDS, WORK_OPEN_STATUS, WORK_STATUS, Maintenance, Marche, Route, Work
 from .routes import admin_required, route_geo
 
 bp = Blueprint("works", __name__, url_prefix="/travaux")
@@ -165,7 +165,39 @@ def edit(item_id):
 @admin_required
 def delete(item_id):
     w = db.get_or_404(Work, item_id)
+    Maintenance.query.filter_by(work_id=w.id).update({"work_id": None})   # les interventions sont conservées
     db.session.delete(w)
     db.session.commit()
     flash("Chantier supprimé.", "info")
     return redirect(url_for("works.index"))
+
+
+@bp.route("/entretien")
+@login_required
+def maintenance_tab():
+    """Interventions d'entretien vues depuis les Travaux (lecture seule ; la gestion reste dans le module Entretien)."""
+    if not current_user.can("entretien"):
+        abort(403)
+    status = request.args.get("status", "")
+    link = request.args.get("link", "")           # "oui" = rattachées à un chantier, "non" = non rattachées
+    q = request.args.get("q", "").strip()
+    page = request.args.get("page", 1, type=int)
+    query = Maintenance.query.join(Route)
+    if status in MAINT_STATUS:
+        query = query.filter(Maintenance.status == status)
+    if link == "oui":
+        query = query.filter(Maintenance.work_id.isnot(None))
+    elif link == "non":
+        query = query.filter(Maintenance.work_id.is_(None))
+    if q:
+        like = f"%{q}%"
+        query = query.filter(db.or_(Route.code.ilike(like), Maintenance.title.ilike(like), Maintenance.contractor.ilike(like)))
+    pagination = query.order_by(Maintenance.planned_date.desc(), Maintenance.id.desc()).paginate(
+        page=page, per_page=PER_PAGE, error_out=False)
+    allm = Maintenance.query.all()
+    st = {"total": len(allm), "planned": sum(1 for m in allm if m.status == "planifie"),
+          "ongoing": sum(1 for m in allm if m.status == "en_cours"), "late": sum(1 for m in allm if m.is_late),
+          "done": sum(1 for m in allm if m.status == "termine"), "linked": sum(1 for m in allm if m.work_id)}
+    args = {k: v for k, v in {"q": q, "status": status, "link": link}.items() if v}
+    return render_template("works_maintenance.html", pagination=pagination, args=args, q=q, status=status, link=link,
+                           st=st, kinds=MAINT_KINDS, statuses=MAINT_STATUS)

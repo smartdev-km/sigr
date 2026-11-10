@@ -36,4 +36,18 @@
         <td style="text-align:right">{{ kmf(m.current_amount) }}<div class="hint">{{ m.paid_rate }} % payé</div></td></tr>{% endfor %}</tbody></table>
     {% else %}<div class="empty">Aucun marché.</div>{% endif %}</div>
 </div>
+{% if can('entretien') and e.maintenances %}
+<div class="card" style="margin-top:1rem">
+  <h2>Interventions d'entretien</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Route</th><th>Intervention</th><th>Date prévue</th><th>Statut</th><th>Coût</th></tr></thead><tbody>
+    {% for m in e.maintenances|sort(attribute='planned_date', reverse=True) %}
+      <tr><td><a class="code-link" href="{{ url_for('routes.detail', route_id=m.route_id) }}"><strong>{{ m.route.code }}</strong></a></td>
+        <td><a class="code-link" href="{{ url_for('maintenance.edit', item_id=m.id) }}">{{ m.title }}</a></td>
+        <td>{{ m.planned_date.strftime('%d/%m/%Y') }}</td>
+        <td>{{ {'planifie':'Planifié','en_cours':'En cours','termine':'Terminé','annule':'Annulé'}[m.status] }}</td>
+        <td>{% if m.cost_kmf is not none %}{{ kmf(m.cost_kmf) }}{% else %}—{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+</div>
+{% endif %}
 {% endblock %}

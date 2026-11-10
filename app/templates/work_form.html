@@ -64,6 +64,23 @@
   <div id="rp-empty" class="empty" hidden>Cette route n'a pas encore de tracé sur la carte.</div>
 </aside>
 </div>
+{% if item and can('entretien') %}
+<div class="card" style="margin-top:1rem">
+  <div class="page-head" style="margin-bottom:.6rem"><h2>Interventions d'entretien rattachées</h2>
+    {% if can('entretien', 'write') %}<a class="btn ghost" href="{{ url_for('maintenance.create', work_id=item.id) }}">+ Planifier une intervention</a>{% endif %}</div>
+  {% if item.maintenances %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Intervention</th><th>Date prévue</th><th>Statut</th><th>Coût</th><th></th></tr></thead><tbody>
+    {% for m in item.maintenances %}
+      <tr><td>{{ m.title }}{% if m.pk_start is not none %}<div class="hint">📍 PK {{ '%.3f'|format(m.pk_start) }}{% if m.pk_end is not none and m.pk_end > m.pk_start %} → {{ '%.3f'|format(m.pk_end) }}{% endif %} km</div>{% endif %}</td>
+        <td>{{ m.planned_date.strftime('%d/%m/%Y') }}{% if m.is_late %} <span class="badge" style="background:var(--critique)">En retard</span>{% endif %}</td>
+        <td>{{ {'planifie':'Planifié','en_cours':'En cours','termine':'Terminé','annule':'Annulé'}[m.status] }}</td>
+        <td>{% if m.cost_kmf is not none %}{{ '{:,}'.format(m.cost_kmf).replace(',', ' ') }} KMF{% else %}—{% endif %}</td>
+        <td class="actions-cell"><a class="btn ghost" href="{{ url_for('maintenance.edit', item_id=m.id) }}">Ouvrir</a></td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty">Aucune intervention rattachée à ce chantier.</div>{% endif %}
+</div>
+{% endif %}
 {% if item and current_user.may_delete %}
 <form class="card danger-zone" method="post" action="{{ url_for('works.delete', item_id=item.id) }}"
       onsubmit="return confirm('Supprimer ce chantier ?')">

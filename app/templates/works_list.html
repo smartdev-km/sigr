@@ -7,6 +7,7 @@
   <div><h1>Travaux</h1><p>{{ pagination.total }} chantier{{ 's' if pagination.total > 1 }}</p></div>
   {% if can('travaux','write') %}<a class="btn" href="{{ url_for('works.create') }}">+ Nouveau chantier</a>{% endif %}
 </div>
+{% include "_works_tabs.html" %}
 
 <div class="grid kpis">
   <div class="card kpi"><div class="label">Chantiers en cours</div><div class="value">{{ st.active }}</div></div>
@@ -37,7 +38,7 @@
     {% for w in pagination.items %}
       <tr>
         <td><a class="code-link" href="{{ url_for('routes.detail', route_id=w.route.id) }}"><strong>{{ w.route.code }}</strong></a></td>
-        <td>{{ w.title }}<div class="hint">{{ kinds[w.kind] }}{% if w.marche %} · <a class="code-link" href="{{ url_for('marches.detail', item_id=w.marche.id) }}">{{ w.marche.number }}</a>{% endif %}{% if w.contractor %} · {{ w.contractor }}{% endif %}{% if w.pk_start is not none and w.pk_end is not none %} · PK {{ '%g'|format(w.pk_start) }}–{{ '%g'|format(w.pk_end) }}{% endif %}</div></td>
+        <td>{{ w.title }}<div class="hint">{{ kinds[w.kind] }}{% if can('entretien') and w.maintenances %} · 🔧 {{ w.maintenances|length }} intervention{{ 's' if w.maintenances|length > 1 }}{% endif %}{% if w.marche %} · <a class="code-link" href="{{ url_for('marches.detail', item_id=w.marche.id) }}">{{ w.marche.number }}</a>{% endif %}{% if w.contractor %} · {{ w.contractor }}{% endif %}{% if w.pk_start is not none and w.pk_end is not none %} · PK {{ '%g'|format(w.pk_start) }}–{{ '%g'|format(w.pk_end) }}{% endif %}</div></td>
         <td><span class="badge" style="background:{{ st_colors[w.status] }}">{{ statuses[w.status] }}</span></td>
         <td style="min-width:120px"><div class="bar" title="{{ w.progress }} %"><span style="width:{{ w.progress }}%;background:{{ 'var(--bon)' if w.status == 'receptionne' else 'var(--primary)' }}"></span></div><div class="hint">{{ w.progress }} %</div></td>
         <td>{% if w.end_planned %}{{ w.end_planned.strftime('%d/%m/%Y') }}{% else %}—{% endif %}{% if w.is_late %} <span class="badge" style="background:var(--critique)">En retard</span>{% endif %}</td>
