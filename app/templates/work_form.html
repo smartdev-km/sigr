@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier le chantier' if item else 'Nouveau chantier' }}{% endblock %}
+{% macro field(f) %}
+  <div>{{ f.label }}{{ f(**kwargs) }}{% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% macro money(f) %}
+  <div>{{ f.label }}
+    <div class="input-group">{{ f(min="0", step="1", inputmode="numeric", placeholder="0") }}<span class="suffix">KMF</span></div>
+    {% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% macro km(f) %}
+  <div>{{ f.label }}
+    <div class="input-group">{{ f(step="any", min="0", inputmode="decimal", placeholder="0.0") }}<span class="suffix">km</span></div>
+    {% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% macro date_field(f) %}
+  <div class="date-field">{{ f.label }}
+    <div class="input-group">{{ f(type="date") }}<button type="button" class="suffix date-btn" aria-label="Ouvrir le calendrier">📅</button></div>
+    <div class="chips"><button type="button" data-set="{{ f.name }}" data-add="0">Aujourd'hui</button><button type="button" data-clear="{{ f.name }}">Effacer</button></div>
+    {% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Modifier le chantier' if item else 'Nouveau chantier' }}</h1>
+  <a class="btn ghost" href="{{ url_for('works.index') }}">← Retour</a>
+</div>
+<div class="split">
+<form class="card" method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="form-grid">
+    {{ field(form.route_id) }}
+    {{ field(form.kind) }}
+    {{ field(form.status) }}
+  </div>
+  {{ field(form.title) }}
+
+  <h2 class="sec">Avancement</h2>
+  <div class="progress-field">
+    {{ form.progress.label }}
+    <div class="range-row">{{ form.progress(type="range", min="0", max="100", step="5") }}<output id="progress-out">{{ form.progress.data or 0 }} %</output></div>
+    {% for e in form.progress.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+    <p class="hint">Passer le statut à « Réceptionné » met l'avancement à 100 %.</p>
+  </div>
+  <div class="form-grid">{{ km(form.pk_start) }}{{ km(form.pk_end) }}</div>
+
+  <h2 class="sec">Calendrier</h2>
+  <div class="form-grid">{{ date_field(form.start_date) }}{{ date_field(form.end_planned) }}{{ date_field(form.end_actual) }}</div>
+
+  <h2 class="sec">Budget et acteurs</h2>
+  <div class="form-grid">
+    {{ money(form.budget_kmf) }}{{ money(form.spent_kmf) }}
+    {{ field(form.marche_id) }}{{ field(form.contractor) }}{{ field(form.funder) }}{{ field(form.supervisor) }}
+  </div>
+  {{ field(form.description) }}
+  <div class="actions"><button class="btn" type="submit">{{ 'Enregistrer' if item else 'Enregistrer le chantier' }}</button></div>
+</form>
+
+<aside class="card split-map route-preview" id="route-preview">
+  <div class="preview-head"><strong id="rp-title">Route sélectionnée</strong><span id="rp-meta" class="hint"></span></div>
+  <div id="rp-map" class="detail-map" style="height:460px"></div>
+  <div id="rp-empty" class="empty" hidden>Cette route n'a pas encore de tracé sur la carte.</div>
+</aside>
+</div>
+{% if item and current_user.may_delete %}
+<form class="card danger-zone" method="post" action="{{ url_for('works.delete', item_id=item.id) }}"
+      onsubmit="return confirm('Supprimer ce chantier ?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn danger" type="submit">Supprimer ce chantier</button>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>window.ROUTE_GEO = {{ route_geo|tojson }};</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="{{ url_for('static', filename='js/routing.js') }}"></script>
+<script src="{{ url_for('static', filename='js/route_preview.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dates.js') }}"></script>
+<script>
+  (function () {
+    var r = document.querySelector('[name=progress]'), o = document.getElementById('progress-out'),
+        st = document.querySelector('[name=status]');
+    r.addEventListener('input', function () { o.textContent = r.value + ' %'; });
+    st.addEventListener('change', function () {
+      if (st.value === 'receptionne') { r.value = 100; o.textContent = '100 %'; }
+      if (st.value === 'etude' || st.value === 'appel_offres') { r.value = 0; o.textContent = '0 %'; }
+    });
+  })();
+</script>
+{% endblock %}

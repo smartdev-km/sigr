@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Carte{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Carte du réseau routier</h1><p id="map-count"></p></div>
+</div>
+<div class="map-layout">
+  <aside class="card map-side">
+    <div class="side-block">
+      <div class="side-label">Colorer par</div>
+      <div class="seg" role="group">
+        <button type="button" class="btn ghost on" data-color="cond">État</button>
+        <button type="button" class="btn ghost" data-color="type">Type</button>
+      </div>
+    </div>
+    <div class="side-block">
+      <div class="side-label">Île</div>
+      <div class="seg" role="group" id="island-seg">
+        <button type="button" class="btn ghost on" data-island="">Toutes</button>
+        {% for i in islands %}<button type="button" class="btn ghost" data-island="{{ i }}">{{ i }}</button>{% endfor %}
+      </div>
+    </div>
+    <div class="side-block">
+      <div class="side-label">Type</div>
+      <div class="chips-check" id="f-type">
+        {% for k, v in route_types.items() %}<label class="chk"><input type="checkbox" value="{{ k }}" checked><span>{{ k }} · {{ v.split(' ')[1] }}</span></label>{% endfor %}
+      </div>
+    </div>
+    <div class="side-block">
+      <div class="side-label">État</div>
+      <div class="chips-check" id="f-cond">
+        {% for k, v in conditions.items() %}<label class="chk"><input type="checkbox" value="{{ k }}" checked><span>{{ v }}</span></label>{% endfor %}
+      </div>
+    </div>
+    <div class="side-block">
+      <label class="check" style="margin:0"><input type="checkbox" id="f-active"> Seulement avec travaux / entretien en cours</label>
+      {% if structures is defined and can('ouvrages') %}<label class="check" style="margin:.5rem 0 0"><input type="checkbox" id="f-struct"> Afficher les ouvrages <span class="hint">({{ structures|length }} localisé{{ 's' if structures|length > 1 }})</span></label>{% endif %}
+    </div>
+    <div class="side-block">
+      <div class="side-label">Légende</div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="side-block grow">
+      <div class="side-label">Routes</div>
+      <ul class="route-list" id="route-list"></ul>
+    </div>
+  </aside>
+  <div class="map-wrap"><div id="net-map"></div></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  window.NET = {{ routes|tojson }};
+  window.STRUCTS = {{ (structures or [])|tojson }};
+  window.ISLAND_BOUNDS = {{ bounds|tojson }};
+  window.COND = {{ conditions|tojson }};
+  window.TYPES = {{ route_types|tojson }};
+  window.URLS = { ouvrage: "{{ url_for('ouvrages.edit', item_id=0) }}", detail: "{{ url_for('routes.detail', route_id=0) }}", edit: "{{ url_for('routes.edit', route_id=0) }}",
+                  geom: "{{ url_for('map.save_geometry', route_id=0) }}" };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="{{ url_for('static', filename='js/routing.js') }}"></script>
+<script src="{{ url_for('static', filename='js/network_map.js') }}"></script>
+{% endblock %}

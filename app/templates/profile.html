@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Mon profil{% endblock %}
+{% macro field(f) %}
+  <div>{{ f.label }}{{ f(**kwargs) }}{% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% block content %}
+<div class="profile-head">
+  <div class="avatar">{{ current_user.full_name[:1]|upper }}</div>
+  <div>
+    <h1>{{ current_user.full_name }}</h1>
+    <p>@{{ current_user.username }} · {{ current_user.role_label }}
+      {% if current_user.last_login %}· dernière connexion {{ current_user.last_login.strftime('%d/%m/%Y %H:%M') }} UTC{% endif %}</p>
+  </div>
+</div>
+
+<form class="card" method="post" action="{{ url_for('profile.update_info') }}" novalidate style="margin-bottom:1rem">
+  {{ pform.hidden_tag() }}
+  <h2>Informations personnelles</h2>
+  <div class="form-grid">
+    {{ field(pform.full_name) }}
+    {{ field(pform.email, type="text", autocomplete="email") }}
+    {{ field(pform.phone, autocomplete="tel") }}
+    {{ field(pform.job_title) }}
+    {{ field(pform.organization) }}
+    {{ field(pform.island) }}
+  </div>
+  {{ field(pform.bio) }}
+  <div class="actions"><button class="btn" type="submit">Enregistrer</button></div>
+</form>
+
+<form class="card" method="post" action="{{ url_for('profile.change_password') }}" novalidate>
+  {{ wform.hidden_tag() }}
+  <h2>Changer le mot de passe</h2>
+  <div class="form-grid">
+    {{ field(wform.current_password, autocomplete="current-password") }}
+    {{ field(wform.new_password, autocomplete="new-password") }}
+    {{ field(wform.confirm, autocomplete="new-password") }}
+  </div>
+  <p class="hint">8 caractères minimum.</p>
+  <div class="actions"><button class="btn" type="submit">Modifier le mot de passe</button></div>
+</form>
+{% endblock %}

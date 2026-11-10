@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Entretien{% endblock %}
+{% block content %}
+{% set st_colors = {'planifie':'var(--accent)','en_cours':'var(--moyen)','termine':'var(--bon)','annule':'var(--muted)'} %}
+<div class="page-head">
+  <div><h1>Entretien des routes</h1><p>{{ pagination.total }} intervention{{ 's' if pagination.total > 1 }}</p></div>
+  <div class="head-actions">
+    <button type="button" class="btn ghost" id="kind-toggle" aria-expanded="false" aria-controls="kind-card">
+      📊 Suivi par type d'intervention <span class="chev">▾</span>
+    </button>
+    {% if can('entretien','write') %}<a class="btn" href="{{ url_for('maintenance.create') }}">+ Planifier un entretien</a>{% endif %}
+  </div>
+</div>
+
+<div class="card" id="kind-card" style="margin-bottom:1rem" hidden>
+  <h2>Suivi par type d'intervention</h2>
+  <div class="table-wrap"><table class="kind-table">
+    <thead><tr><th>Type</th><th>Répartition</th><th>Total</th><th>En retard</th><th>Réalisation</th><th>Coût (terminées)</th><th>Coût moyen</th><th>Dernière</th></tr></thead>
+    <tbody>
+    {% for k, label in kinds.items() %}{% set d = kind_stats[k] %}
+      <tr class="{{ 'row-active' if kind == k }}">
+        <td><a class="code-link" href="{{ url_for('maintenance.index', kind=k) }}"><strong>{{ label }}</strong></a></td>
+        <td style="min-width:150px">
+          {% if d.total %}<div class="stack mini" title="Planifié {{ d.by_status.planifie }} · En cours {{ d.by_status.en_cours }} · Terminé {{ d.by_status.termine }} · Annulé {{ d.by_status.annule }}">
+            {% for s_key in ['termine','en_cours','planifie','annule'] if d.by_status[s_key] %}
+              <span style="width:{{ d.by_status[s_key] / d.total * 100 }}%;background:{{ st_colors[s_key] }}"></span>{% endfor %}
+          </div>{% else %}<span class="hint">—</span>{% endif %}
+        </td>
+        <td>{{ d.total }}</td>
+        <td>{% if d.late %}<span class="badge" style="background:var(--critique)">{{ d.late }}</span>{% else %}0{% endif %}</td>
+        <td>{{ d.rate }} %</td>
+        <td>{{ '{:,}'.format(d.cost).replace(',', ' ') }} KMF</td>
+        <td>{% if d.avg_cost %}{{ '{:,}'.format(d.avg_cost).replace(',', ' ') }} KMF{% else %}—{% endif %}</td>
+        <td>{{ d.last_done.strftime('%d/%m/%Y') if d.last_done else '—' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <div class="legend" style="margin-top:.6rem">
+    {% for s_key, s_label in statuses.items() %}<span><i class="dot" style="background:{{ st_colors[s_key] }}"></i>{{ s_label }}</span>{% endfor %}
+    <span class="hint">· Réalisation = terminées / (total − annulées)</span>
+  </div>
+</div>
+
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Planifiées</div><div class="value">{{ counts.get('planifie', 0) }}</div></div>
+  <div class="card kpi warn"><div class="label">En retard</div><div class="value">{{ late }}</div></div>
+  <div class="card kpi"><div class="label">En cours</div><div class="value">{{ counts.get('en_cours', 0) }}</div></div>
+  <div class="card kpi"><div class="label">Terminées</div><div class="value">{{ counts.get('termine', 0) }}</div></div>
+  <div class="card kpi"><div class="label">Coût des travaux terminés</div><div class="value" style="font-size:1.5rem">{{ '{:,}'.format(spent|int).replace(',', ' ') }} <span class="unit">KMF</span></div></div>
+</div>
+
+
+<form class="card filters" method="get">
+  <input type="text" name="q" value="{{ q }}" placeholder="Rechercher (route, intitulé, entreprise)…">
+  <select name="status"><option value="">Tous les statuts</option>
+    {% for k, v in statuses.items() %}<option value="{{ k }}" {{ 'selected' if k == status }}>{{ v }}</option>{% endfor %}</select>
+  <select name="kind"><option value="">Tous les types</option>
+    {% for k, v in kinds.items() %}<option value="{{ k }}" {{ 'selected' if k == kind }}>{{ v }}</option>{% endfor %}</select>
+  <button class="btn" type="submit">Filtrer</button>
+  {% if q or status or kind %}<a class="btn ghost" href="{{ url_for('maintenance.index') }}">Réinitialiser</a>{% endif %}
+</form>
+
+<div class="card">
+  {% if pagination.items %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Route</th><th>Intervention</th><th>Type</th><th>Date prévue</th><th>Statut</th><th>Coût</th><th></th></tr></thead>
+    <tbody>
+    {% for m in pagination.items %}
+      <tr>
+        <td><a class="code-link" href="{{ url_for('routes.detail', route_id=m.route.id) }}"><strong>{{ m.route.code }}</strong></a></td>
+        <td>{{ m.title }}{% if m.contractor %}<div class="hint">{{ m.contractor }}</div>{% endif %}
+          {% if m.description %}<div class="hint">{{ m.description[:90] }}{{ '…' if m.description|length > 90 }}</div>{% endif %}</td>
+        <td>{{ kinds.get(m.kind, m.kind) }}</td>
+        <td>{{ m.planned_date.strftime('%d/%m/%Y') }}{% if m.is_late %} <span class="badge" style="background:var(--critique)">En retard</span>{% endif %}</td>
+        <td><span class="badge" style="background:{{ st_colors[m.status] }}">{{ statuses[m.status] }}</span></td>
+        <td>{% if m.cost_kmf is not none %}{{ '{:,}'.format(m.cost_kmf).replace(',', ' ') }} KMF{% else %}—{% endif %}</td>
+        <td class="actions-cell"><div class="row-actions"><a class="btn ghost" href="{{ url_for('maintenance.edit', item_id=m.id) }}">{{ 'Modifier' if can('entretien','write') else 'Détail' }}</a></div></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if pagination.pages > 1 %}
+  <div class="pager">
+    {% if pagination.has_prev %}<a class="btn ghost" href="{{ url_for('maintenance.index', **dict(args, page=pagination.prev_num)) }}">← Précédent</a>{% endif %}
+    <span>Page {{ pagination.page }} / {{ pagination.pages }}</span>
+    {% if pagination.has_next %}<a class="btn ghost" href="{{ url_for('maintenance.index', **dict(args, page=pagination.next_num)) }}">Suivant →</a>{% endif %}
+  </div>{% endif %}
+  {% else %}<div class="empty">Aucune intervention.{% if can('entretien','write') %} <a href="{{ url_for('maintenance.create') }}">Planifier un entretien</a>{% endif %}</div>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  (function () {
+    var btn = document.getElementById('kind-toggle'), card = document.getElementById('kind-card'), key = 'sigr-kind-open';
+    function set(open) {
+      card.hidden = !open; btn.setAttribute('aria-expanded', open); btn.classList.toggle('open', open);
+      try { localStorage.setItem(key, open ? '1' : '0'); } catch (_) {}
+    }
+    btn.addEventListener('click', function () { set(card.hidden); });
+    // ouvert d'office si on arrive depuis un filtre par type (?kind=…) ou si l'utilisateur l'avait laissé ouvert
+    var open = /[?&]kind=/.test(location.search);
+    try { open = open || localStorage.getItem(key) === '1'; } catch (_) {}
+    set(open);
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+# Blueprint Render : « New + > Blueprint » puis sélectionner le dépôt.
+databases:
+  - name: sigr-db
+    databaseName: sigr
+    user: sigr
+    plan: free            # ⚠ la base gratuite de Render expire après 30 jours : passer à un plan payant pour la production
+
+services:
+  - type: web
+    name: sigr-comores
+    runtime: python
+    plan: free            # le service gratuit se met en veille après 15 min d'inactivité
+    buildCommand: pip install -r requirements.txt
+    # crée/met à jour les tables, crée le 1er administrateur si besoin, puis démarre l'application
+    startCommand: >-
+      flask --app run init-db &&
+      flask --app run bootstrap-admin &&
+      ( [ "$SEED_DEMO" != "1" ] || flask --app run seed-demo ) &&
+      gunicorn run:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 60 --access-logfile -
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: APP_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sigr-db
+          property: connectionString
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_NAME
+        value: Administrateur
+      - key: SEED_DEMO
+        value: "0"        # "1" = ajoute les données de démonstration au démarrage (sans doublon) ; remettre à "0" ensuite
+      - key: ADMIN_PASSWORD
+        sync: false       # demandé à la création du Blueprint (8 caractères min.), à changer à la 1re connexion

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier l\'entreprise' if item else 'Nouvelle entreprise' }}{% endblock %}
+{% macro field(f) %}
+  <div>{{ f.label }}{{ f(**kwargs) }}{% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Modifier ' + item.name if item else 'Nouvelle entreprise' }}</h1>
+  <a class="btn ghost" href="{{ url_for('entreprises.detail', item_id=item.id) if item else url_for('entreprises.index') }}">← Retour</a>
+</div>
+<form class="card" method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <h2>Identité</h2>
+  <div class="form-grid">{{ field(form.name) }}{{ field(form.acronym) }}{{ field(form.registration) }}{{ field(form.island) }}</div>
+  {{ field(form.specialties) }}
+  <h2 class="sec">Contact</h2>
+  <div class="form-grid">{{ field(form.contact_name) }}{{ field(form.phone) }}{{ field(form.email, type="text") }}</div>
+  {{ field(form.address) }}
+  <h2 class="sec">Statut</h2>
+  <label class="check">{{ form.approved() }} {{ form.approved.label.text }}</label>
+  <label class="check">{{ form.active() }} {{ form.active.label.text }}</label>
+  {{ field(form.notes) }}
+  <div class="actions"><button class="btn" type="submit">{{ 'Enregistrer' if item else 'Enregistrer l\'entreprise' }}</button></div>
+</form>
+{% if item and current_user.may_delete %}
+<form class="card danger-zone" method="post" action="{{ url_for('entreprises.delete', item_id=item.id) }}" onsubmit="return confirm('Supprimer cette entreprise ?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <p class="hint">Une entreprise qui a des marchés ne peut pas être supprimée : désactivez-la.</p>
+  <button class="btn danger" type="submit">Supprimer cette entreprise</button>
+</form>
+{% endif %}
+{% endblock %}

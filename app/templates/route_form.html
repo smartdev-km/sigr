@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier ' + route.code if route else 'Nouvelle route' }}{% endblock %}
+{% macro field(f) %}
+  <div>{{ f.label }}{{ f(**kwargs) }}{% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Modifier la route ' + route.code if route else 'Nouvelle route' }}</h1>
+  <a class="btn ghost" href="{{ url_for('routes.index') }}">← Retour à la liste</a>
+</div>
+<form class="card" method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="form-grid">
+    {{ field(form.type) }}
+    {{ field(form.code) }}
+    {{ field(form.name) }}
+    {{ field(form.island) }}
+    <div>{{ form.length_km.label }}
+      <div class="input-group">{{ form.length_km(step="any", min="0", inputmode="decimal", placeholder="0.0") }}<span class="suffix">km</span></div>
+      {% for e in form.length_km.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+    {{ field(form.condition) }}
+  </div>
+  {{ form.start_lat() }}{{ form.start_lng() }}{{ form.end_lat() }}{{ form.end_lng() }}{{ form.waypoints() }}{{ form.geometry() }}
+  <div class="steps">
+    <strong>Itinéraire</strong>
+    <p class="hint" id="vias-hint">Départ, étapes facultatives, puis arrivée. L'ordre de la liste est l'ordre du tracé.</p>
+
+    <div class="via-row step step-start">
+      <span class="via-num start">A</span>
+      <div class="geo" data-kind="start">
+        <div class="input-group">{{ form.start_point(placeholder="Point de départ (ex. Moroni)", autocomplete="off", **{"aria-label": "Point de départ"}) }}<button type="button" class="suffix geo-btn" title="Localiser sur la carte" aria-label="Localiser sur la carte">🔍</button></div>
+        <ul class="geo-results" hidden></ul>
+        {% for e in form.start_point.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+      </div>
+      <div class="via-actions"><button type="button" class="btn ghost" data-pick="start" title="Placer sur la carte">📍</button></div>
+    </div>
+
+    <div id="vias"></div>
+    <div class="add-via-wrap"><button type="button" class="btn ghost" id="add-via">+ Ajouter un point intermédiaire</button></div>
+
+    <div class="via-row step step-end">
+      <span class="via-num end">B</span>
+      <div class="geo" data-kind="end">
+        <div class="input-group">{{ form.end_point(placeholder="Point d'arrivée (ex. Foumbouni)", autocomplete="off", **{"aria-label": "Point d'arrivée"}) }}<button type="button" class="suffix geo-btn" title="Localiser sur la carte" aria-label="Localiser sur la carte">🔍</button></div>
+        <ul class="geo-results" hidden></ul>
+        {% for e in form.end_point.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+      </div>
+      <div class="via-actions"><button type="button" class="btn ghost" data-pick="end" title="Placer sur la carte">📍</button></div>
+    </div>
+    {% for e in form.waypoints.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+  </div>
+
+  <div class="map-box">
+    <div class="map-toolbar">
+      <strong>Tracé sur la carte</strong>
+      <div class="seg" role="group" aria-label="Point à placer">
+        <button type="button" class="btn ghost" data-pick="start">A · Départ</button>
+        <button type="button" class="btn ghost" data-pick="end">B · Arrivée</button>
+        <button type="button" class="btn ghost" id="map-add-via">+ Point</button>
+        <button type="button" class="btn ghost" id="map-clear">Effacer</button>
+      </div>
+    </div>
+    <p class="hint" id="map-hint">Choisissez l'île, puis cliquez sur la carte pour placer le départ (A) puis l'arrivée (B). Utilisez « + Point » pour ajouter des étapes. Les marqueurs sont déplaçables.</p>
+    <div id="map" aria-label="Carte de l'île"></div>
+    <div class="coords"><span id="coord-start">A : —</span><span id="coord-end">B : —</span><span id="coord-vias"></span><span id="coord-dist"></span></div>
+    {% for e in form.end_lng.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+  </div>
+
+  {{ field(form.notes) }}
+  <div class="actions"><button class="btn" type="submit">{{ 'Enregistrer' if route else 'Ajouter la route' }}</button></div>
+</form>
+
+{% if route and current_user.may_delete %}
+<form class="card danger-zone" method="post" action="{{ url_for('routes.delete', route_id=route.id) }}"
+      onsubmit="return confirm('Supprimer définitivement la route {{ route.code }} ?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <h2>Zone dangereuse</h2>
+  <p class="hint">La suppression est définitive.</p>
+  <button class="btn danger" type="submit">Supprimer cette route</button>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>window.ISLAND_BOUNDS = {{ bounds|tojson }};</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="{{ url_for('static', filename='js/routing.js') }}"></script>
+<script src="{{ url_for('static', filename='js/route_map.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier l\'intervention' if item else 'Nouvelle intervention' }}{% endblock %}
+{% macro field(f) %}
+  <div>{{ f.label }}{{ f(**kwargs) }}{% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Modifier l\'intervention' if item else 'Planifier un entretien' }}</h1>
+  <a class="btn ghost" href="{{ url_for('maintenance.index') }}">← Retour</a>
+</div>
+<form class="card" method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="form-grid">
+    {{ field(form.route_id) }}
+    {{ field(form.kind) }}
+    {{ field(form.status) }}
+  </div>
+  <div class="route-preview" id="route-preview">
+    <div class="preview-head"><strong id="rp-title">Route sélectionnée</strong><span id="rp-meta" class="hint"></span></div>
+    <div id="rp-map" class="detail-map" style="height:300px"></div>
+    <div id="rp-empty" class="empty" hidden>Cette route n'a pas encore de tracé sur la carte.</div>
+  </div>
+
+  {{ field(form.title) }}
+  <div class="form-grid">
+    <div class="date-field">{{ form.planned_date.label }}
+      <div class="input-group">{{ form.planned_date(type="date") }}<button type="button" class="suffix date-btn" aria-label="Ouvrir le calendrier">📅</button></div>
+      <div class="chips"><button type="button" data-set="planned_date" data-add="0">Aujourd'hui</button><button type="button" data-set="planned_date" data-add="7">+ 1 semaine</button><button type="button" data-set="planned_date" data-add="30">+ 1 mois</button></div>
+      {% for e in form.planned_date.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+    <div class="date-field">{{ form.done_date.label }}
+      <div class="input-group">{{ form.done_date(type="date") }}<button type="button" class="suffix date-btn" aria-label="Ouvrir le calendrier">📅</button></div>
+      <div class="chips"><button type="button" data-set="done_date" data-add="0">Aujourd'hui</button><button type="button" data-clear="done_date">Effacer</button></div>
+      {% for e in form.done_date.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+    <div>{{ form.cost_kmf.label }}
+      <div class="input-group">{{ form.cost_kmf(min="0", step="1", inputmode="numeric", placeholder="0") }}<span class="suffix">KMF</span></div>
+      {% for e in form.cost_kmf.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+    {{ field(form.contractor) }}
+    <div>{{ form.condition_after.label }}{{ form.condition_after() }}
+      <p class="hint">Appliqué à la route quand le statut passe à « Terminé ».</p></div>
+  </div>
+  {{ field(form.description) }}
+  <div class="actions"><button class="btn" type="submit">{{ 'Enregistrer' if item else 'Planifier' }}</button></div>
+</form>
+{% if item and current_user.may_delete %}
+<form class="card danger-zone" method="post" action="{{ url_for('maintenance.delete', item_id=item.id) }}"
+      onsubmit="return confirm('Supprimer cette intervention ?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn danger" type="submit">Supprimer cette intervention</button>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>window.ROUTE_GEO = {{ route_geo|tojson }};</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="{{ url_for('static', filename='js/routing.js') }}"></script>
+<script src="{{ url_for('static', filename='js/route_preview.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dates.js') }}"></script>
+{% endblock %}

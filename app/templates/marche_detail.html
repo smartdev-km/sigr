@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Marché {{ m.number }}{% endblock %}
+{% block content %}
+{% set st_colors = {'preparation':'var(--muted)','en_cours':'var(--moyen)','suspendu':'var(--mauvais)','reception_provisoire':'var(--accent)','reception_definitive':'var(--bon)','resilie':'var(--critique)'} %}
+{% set pay_colors = {'paye':'var(--bon)','emis':'var(--moyen)'} %}
+{% set w = can('marches','write') %}
+<div class="page-head">
+  <div>
+    <h1>{{ m.number }} <span class="badge" style="background:{{ st_colors[m.status] }};vertical-align:middle">{{ statuses[m.status] }}</span></h1>
+    <p>{{ m.title }}</p>
+  </div>
+  <div class="head-actions">
+    <a class="btn ghost" href="{{ url_for('marches.index') }}">← Marchés</a>
+    {% if w %}<a class="btn" href="{{ url_for('marches.edit', item_id=m.id) }}">Modifier</a>{% endif %}
+  </div>
+</div>
+
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Montant initial</div><div class="value" style="font-size:1.3rem">{{ kmf(m.amount_kmf) }}</div></div>
+  <div class="card kpi"><div class="label">Avenants</div><div class="value" style="font-size:1.3rem">{{ '+' if m.amendments_total > 0 }}{{ kmf(m.amendments_total) }}</div></div>
+  <div class="card kpi"><div class="label">Montant actuel</div><div class="value" style="font-size:1.3rem">{{ kmf(m.current_amount) }}</div></div>
+  <div class="card kpi"><div class="label">Payé</div><div class="value" style="font-size:1.3rem">{{ kmf(m.paid) }} <span class="unit">({{ m.paid_rate }} %)</span></div></div>
+  <div class="card kpi {{ 'warn' if m.over_budget }}"><div class="label">Reste à payer</div><div class="value" style="font-size:1.3rem">{{ kmf(m.remaining) }}</div></div>
+</div>
+<div class="card" style="margin-bottom:1rem">
+  <div class="bar big" title="{{ m.paid_rate }} %"><span style="width:{{ [m.paid_rate,100]|min }}%;background:{{ 'var(--critique)' if m.over_budget else 'var(--primary)' }}"></span></div>
+  <div class="hint" style="margin-top:.35rem">{{ m.paid_rate }} % du marché payé{% if m.pending %} · {{ kmf(m.pending) }} émis en attente de paiement{% endif %}{% if m.over_budget %} · <strong style="color:var(--critique)">dépassement du montant du marché</strong>{% endif %}</div>
+</div>
+
+<div class="grid cols">
+  <div class="card">
+    <h2>Informations</h2>
+    <dl class="info">
+      <dt>Entreprise</dt><dd><a class="code-link" href="{{ url_for('entreprises.detail', item_id=m.entreprise.id) }}">{{ m.entreprise.name }}</a></dd>
+      <dt>Financement</dt><dd>{{ m.funder or '—' }}</dd>
+      <dt>Passation</dt><dd>{{ modes.get(m.mode, '—') if m.mode else '—' }}</dd>
+      <dt>Signature</dt><dd>{{ m.signed_on.strftime('%d/%m/%Y') if m.signed_on else '—' }}</dd>
+      <dt>Ordre de service</dt><dd>{{ m.start_order_on.strftime('%d/%m/%Y') if m.start_order_on else '—' }}</dd>
+      <dt>Délai</dt><dd>{% if m.total_days is not none %}{{ m.total_days }} jours{% if m.total_days != m.duration_days %} <span class="hint">({{ m.duration_days }} + prolongations)</span>{% endif %}{% else %}—{% endif %}</dd>
+      <dt>Fin prévue</dt><dd>{{ m.planned_end.strftime('%d/%m/%Y') if m.planned_end else '—' }}{% if m.is_late %} <span class="badge" style="background:var(--critique)">En retard</span>{% endif %}</dd>
+    </dl>
+    {% if m.description %}<p class="notes" style="margin-top:.8rem">{{ m.description }}</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2>Chantiers rattachés</h2>
+    {% if m.works %}
+    <table><tbody>{% for wk in m.works %}
+      <tr><td><a class="code-link" href="{{ url_for('works.edit', item_id=wk.id) }}"><strong>{{ wk.route.code }}</strong></a><div class="hint">{{ wk.title }}</div></td>
+        <td style="text-align:right">{{ wk.progress }} %</td></tr>{% endfor %}</tbody></table>
+    {% else %}<div class="empty">Aucun chantier rattaché.<div class="hint">Choisissez ce marché dans le formulaire d'un chantier.</div></div>{% endif %}
+  </div>
+</div>
+
+<div class="card" id="avenants" style="margin-bottom:1rem">
+  <div class="page-head" style="margin-bottom:.6rem"><h2>Avenants</h2></div>
+  {% if m.amendments %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>N°</th><th>Date</th><th>Objet</th><th>Montant</th><th>Prolongation</th><th></th></tr></thead><tbody>
+    {% for a in m.amendments %}
+      <tr><td>{{ a.number }}</td><td>{{ a.signed_on.strftime('%d/%m/%Y') if a.signed_on else '—' }}</td><td>{{ a.purpose or '—' }}</td>
+        <td style="color:{{ 'var(--critique)' if a.amount_kmf < 0 }}">{{ '+' if a.amount_kmf > 0 }}{{ kmf(a.amount_kmf) }}</td>
+        <td>{{ ('+' if a.extra_days > 0) ~ a.extra_days ~ ' j' if a.extra_days else '—' }}</td>
+        <td class="actions-cell">{% if current_user.may_delete and w %}<form method="post" action="{{ url_for('marches.delete_amendment', av_id=a.id) }}" onsubmit="return confirm('Supprimer cet avenant ?')" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn ghost danger-text" type="submit">Supprimer</button></form>{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty">Aucun avenant.</div>{% endif %}
+  {% if w %}
+  <details class="add-box"><summary class="btn ghost">+ Ajouter un avenant</summary>
+    <form method="post" action="{{ url_for('marches.add_amendment', item_id=m.id) }}" novalidate>
+      {{ av_form.hidden_tag() }}
+      <div class="form-grid">
+        <div>{{ av_form.number.label }}{{ av_form.number(min="1") }}</div>
+        <div>{{ av_form.signed_on.label }}{{ av_form.signed_on(type="date") }}</div>
+        <div>{{ av_form.purpose.label }}{{ av_form.purpose(placeholder="Ex. travaux supplémentaires, prolongation du délai") }}</div>
+        <div>{{ av_form.amount_kmf.label }}<div class="input-group">{{ av_form.amount_kmf(step="1", inputmode="numeric") }}<span class="suffix">KMF</span></div><p class="hint">Négatif pour une moins-value.</p></div>
+        <div>{{ av_form.extra_days.label }}<div class="input-group">{{ av_form.extra_days(step="1", inputmode="numeric") }}<span class="suffix">jours</span></div></div>
+      </div>
+      <button class="btn" type="submit">Enregistrer l'avenant</button>
+    </form>
+  </details>
+  {% endif %}
+</div>
+
+<div class="card" id="paiements">
+  <div class="page-head" style="margin-bottom:.6rem"><h2>Paiements et dépenses</h2></div>
+  {% if m.payments %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Nature</th><th>N°</th><th>Référence</th><th>Montant</th><th>Statut</th><th></th></tr></thead><tbody>
+    {% for p in m.payments %}
+      <tr><td>{{ p.paid_on.strftime('%d/%m/%Y') }}</td><td>{{ kinds[p.kind] }}{% if p.notes %}<div class="hint">{{ p.notes }}</div>{% endif %}</td>
+        <td>{{ p.number or '—' }}</td><td>{{ p.reference or '—' }}</td><td><strong>{{ kmf(p.amount_kmf) }}</strong></td>
+        <td><span class="badge" style="background:{{ pay_colors[p.status] }}">{{ 'Payé' if p.status == 'paye' else 'Émis' }}</span></td>
+        <td class="actions-cell"><div class="row-actions">
+          {% if w and p.status == 'emis' %}<form method="post" action="{{ url_for('marches.settle_payment', pay_id=p.id) }}" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn ghost" type="submit" title="Marquer comme payé aujourd'hui">Marquer payé</button></form>{% endif %}
+          {% if current_user.may_delete and w %}<form method="post" action="{{ url_for('marches.delete_payment', pay_id=p.id) }}" onsubmit="return confirm('Supprimer ce paiement ?')" style="margin:0"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn ghost danger-text" type="submit">Supprimer</button></form>{% endif %}
+        </div></td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty">Aucun paiement enregistré.</div>{% endif %}
+  {% if w %}
+  <details class="add-box"><summary class="btn ghost">+ Enregistrer un paiement</summary>
+    <form method="post" action="{{ url_for('marches.add_payment', item_id=m.id) }}" novalidate>
+      {{ pay_form.hidden_tag() }}
+      <div class="form-grid">
+        <div>{{ pay_form.kind.label }}{{ pay_form.kind() }}</div>
+        <div>{{ pay_form.number.label }}{{ pay_form.number(placeholder="Ex. 3") }}</div>
+        <div>{{ pay_form.paid_on.label }}{{ pay_form.paid_on(type="date") }}</div>
+        <div>{{ pay_form.amount_kmf.label }}<div class="input-group">{{ pay_form.amount_kmf(min="1", step="1", inputmode="numeric") }}<span class="suffix">KMF</span></div></div>
+        <div>{{ pay_form.status.label }}{{ pay_form.status() }}</div>
+        <div>{{ pay_form.reference.label }}{{ pay_form.reference() }}</div>
+      </div>
+      <div>{{ pay_form.notes.label }}{{ pay_form.notes() }}</div>
+      <button class="btn" type="submit" style="margin-top:.8rem">Enregistrer le paiement</button>
+    </form>
+  </details>
+  {% endif %}
+</div>
+{% endblock %}

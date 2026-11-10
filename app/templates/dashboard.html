@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Tableau de bord{% endblock %}
+{% block head %}
+{% if carte %}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">{% endif %}
+{% endblock %}
+{% macro money(n) -%}
+  {%- if n >= 1000000 -%}{% set v = (n / 1000000)|round(1) %}{{ ('%d' % v) if v == v|int else (v|string).replace('.', ',') }} M KMF
+  {%- else -%}{{ '{:,}'.format(n|int).replace(',', ' ') }} KMF{%- endif -%}
+{%- endmacro %}
+{% block content %}
+{% set cond_colors = {'bon':'var(--bon)','moyen':'var(--moyen)','mauvais':'var(--mauvais)','critique':'var(--critique)'} %}
+{% set R = d.routes %}
+<div class="page-head">
+  <div>
+    <h1>Tableau de bord</h1>
+    <p>Bonjour {{ current_user.full_name.split(' ')[0] }} · {{ today.strftime('%d/%m/%Y') }}{% if d.island %} · {{ d.island }}{% endif %}</p>
+  </div>
+  <div class="seg island-seg" role="group" aria-label="Filtrer par île">
+    <a class="btn ghost {{ 'on' if not d.island }}" href="{{ url_for('dashboard.index') }}">Toutes les îles</a>
+    {% for i in islands %}<a class="btn ghost {{ 'on' if d.island == i }}" href="{{ url_for('dashboard.index', island=i) }}">{{ i }}</a>{% endfor %}
+  </div>
+</div>
+
+{# ---------- Indicateurs ---------- #}
+<div class="grid kpis dash-kpis">
+  <a class="card kpi kpi-link" href="{{ url_for('routes.index') }}">
+    <div class="label">Routes</div><div class="value">{{ R.count }}</div><div class="sub">{{ R.km }} km de linéaire</div></a>
+  <a class="card kpi kpi-link {{ 'warn' if R.bad }}" href="{{ url_for('routes.index', sort='condition', order='desc') }}">
+    <div class="label">Linéaire dégradé</div><div class="value">{{ R.bad_pct }} <span class="unit">%</span></div>
+    <div class="sub">{{ R.km_bad }} km · {{ R.bad }} route{{ 's' if R.bad > 1 }} mauvaise{{ 's' if R.bad > 1 }} ou critique{{ 's' if R.bad > 1 }}</div></a>
+  {% if d.ouvrages is defined %}
+  <a class="card kpi kpi-link {{ 'warn' if d.ouvrages.bad }}" href="{{ url_for('ouvrages.index') }}">
+    <div class="label">Ouvrages</div><div class="value">{{ d.ouvrages.count }}</div><div class="sub">{{ d.ouvrages.bad }} en mauvais état ou critique</div></a>
+  {% endif %}
+  {% if d.works is defined %}
+  <a class="card kpi kpi-link {{ 'warn' if d.works.late }}" href="{{ url_for('works.index') }}">
+    <div class="label">Chantiers en cours</div><div class="value">{{ d.works.active }}</div>
+    <div class="sub">avancement moyen {{ d.works.avg }} %{% if d.works.late %} · {{ d.works.late }} en retard{% endif %}</div></a>
+  {% endif %}
+  {% if d.maintenance is defined %}
+  <a class="card kpi kpi-link {{ 'warn' if d.maintenance.late }}" href="{{ url_for('maintenance.index') }}">
+    <div class="label">Entretien</div><div class="value">{{ d.maintenance.planned + d.maintenance.ongoing }}</div>
+    <div class="sub">à réaliser{% if d.maintenance.late %} · {{ d.maintenance.late }} en retard{% endif %}</div></a>
+  {% endif %}
+  {% if d.marches is defined %}
+  <a class="card kpi kpi-link {{ 'warn' if d.marches.late }}" href="{{ url_for('marches.index') }}">
+    <div class="label">Marchés</div><div class="value">{{ d.marches.paid_pct }} <span class="unit">% payé</span></div>
+    <div class="sub">{{ money(d.marches.paid) }} sur {{ money(d.marches.amount) }}</div></a>
+  {% endif %}
+</div>
+
+{# ---------- À traiter + état du réseau ---------- #}
+<div class="grid cols dash-cols">
+  <div class="card">
+    <h2>À traiter</h2>
+    {% if d.alerts %}
+    <ul class="alert-list">
+      {% for a in d.alerts %}
+      <li class="al al-{{ a.level }}">
+        <a href="{{ a.url }}">
+          <span class="al-ico" aria-hidden="true">{{ '⛔' if a.level == 'critical' else ('⚠️' if a.level == 'warning' else 'ℹ️') }}</span>
+          <span class="al-text">{{ a.text }}</span>
+          <span class="al-tag">{{ 'Urgent' if a.level == 'critical' else ('À surveiller' if a.level == 'warning' else 'À planifier') }}</span>
+          <span class="al-count">{{ a.count }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<div class="empty">✅ Rien à signaler : tout est à jour.</div>{% endif %}
+  </div>
+
+  <div class="card">
+    <h2>État du réseau</h2>
+    {% if R.count %}
+    <div class="stack tall" role="img" aria-label="Répartition des routes par état">
+      {% for k, label in conditions.items() if R.by_cond[k] %}
+      <span data-tip="{{ label }} : {{ R.by_cond[k] }} route{{ 's' if R.by_cond[k] > 1 }}" style="flex:{{ R.by_cond[k] }};background:{{ cond_colors[k] }}"></span>
+      {% endfor %}
+    </div>
+    <div class="legend">
+      {% for k, label in conditions.items() %}<span><i class="dot" style="background:{{ cond_colors[k] }}"></i>{{ label }} <strong>{{ R.by_cond[k] }}</strong></span>{% endfor %}
+    </div>
+
+    <h3 class="sub-title">Linéaire par type de route</h3>
+    {% set maxkm = [R.by_type.values()|map(attribute='km')|max, 1]|max %}
+    <div class="hbars">
+      {% for code, label in route_types.items() %}{% set g = R.by_type[code] %}
+      <div class="hrow" data-tip="{{ label }} : {{ g.count }} route{{ 's' if g.count > 1 }}, {{ g.km }} km, {{ g.bad }} dégradée{{ 's' if g.bad > 1 }}">
+        <span class="hl">{{ code }} <span class="hint">{{ label.split(' ')[1] }}</span></span>
+        <span class="htrack"><span class="hfill" style="width:{{ g.km / maxkm * 100 }}%"></span></span>
+        <span class="hv">{{ g.km }} km</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% if not d.island %}
+    <h3 class="sub-title">Par île</h3>
+    <div class="hbars">
+      {% set maxi = [R.by_island.values()|map(attribute='km')|max, 1]|max %}
+      {% for i in islands %}{% set g = R.by_island[i] %}
+      <a class="hrow" href="{{ url_for('dashboard.index', island=i) }}" data-tip="{{ i }} : {{ g.count }} route{{ 's' if g.count > 1 }}, {{ g.km }} km">
+        <span class="hl">{{ i }}</span>
+        <span class="htrack"><span class="hfill" style="width:{{ g.km / maxi * 100 }}%"></span></span>
+        <span class="hv">{{ g.km }} km</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% else %}<div class="empty">Aucune route enregistrée.</div>{% endif %}
+  </div>
+</div>
+
+{# ---------- Chantiers + finances ---------- #}
+{% if d.works is defined or d.marches is defined %}
+<div class="grid cols dash-cols">
+  {% if d.works is defined %}
+  <div class="card">
+    <div class="card-head"><h2>Chantiers en cours</h2><a class="more" href="{{ url_for('works.index') }}">Tout voir →</a></div>
+    {% if d.works.top %}
+    <div class="hbars work-bars">
+      {% for w in d.works.top %}
+      <a class="wrow" href="{{ url_for('works.edit', item_id=w.id) }}" data-tip="{{ w.title }} — {{ w.progress }} % réalisé{% if w.end_planned %}, fin prévue {{ w.end_planned.strftime('%d/%m/%Y') }}{% endif %}">
+        <span class="wt"><strong>{{ w.route.code }}</strong> {{ w.title }}{% if w.is_late %} <span class="badge" style="background:var(--critique)">En retard</span>{% endif %}</span>
+        <span class="htrack"><span class="hfill" style="width:{{ w.progress }}%"></span></span>
+        <span class="hv">{{ w.progress }} %</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}<div class="empty">Aucun chantier en cours.</div>{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Finances</h2>
+    {% if d.works is defined and d.works.budget %}
+    {% set wb = d.works %}
+    <div class="fin">
+      <div class="fin-head"><span>Chantiers : dépensé / budget</span><strong>{{ wb.spent_pct }} %</strong></div>
+      <div class="stack" role="img" aria-label="Budget des chantiers dépensé">
+        <span data-tip="Dépensé : {{ money(wb.spent) }}" style="flex:{{ [wb.spent, 1]|max }};background:var(--primary)"></span>
+        {% if wb.budget > wb.spent %}<span data-tip="Reste : {{ money(wb.budget - wb.spent) }}" style="flex:{{ wb.budget - wb.spent }};background:var(--track)"></span>{% endif %}
+      </div>
+      <div class="legend"><span><i class="dot" style="background:var(--primary)"></i>Dépensé {{ money(wb.spent) }}</span><span><i class="dot" style="background:var(--track)"></i>Budget {{ money(wb.budget) }}</span></div>
+    </div>
+    {% endif %}
+    {% if d.marches is defined and d.marches.amount %}
+    {% set mk = d.marches %}
+    <div class="fin">
+      <div class="fin-head"><span>Marchés : payé / montant</span><strong>{{ mk.paid_pct }} %</strong></div>
+      <div class="stack" role="img" aria-label="Paiements des marchés">
+        {% if mk.paid %}<span data-tip="Payé : {{ money(mk.paid) }}" style="flex:{{ mk.paid }};background:var(--primary)"></span>{% endif %}
+        {% if mk.pending %}<span data-tip="Émis, en attente : {{ money(mk.pending) }}" style="flex:{{ mk.pending }};background:var(--moyen)"></span>{% endif %}
+        {% if mk.remaining - mk.pending > 0 %}<span data-tip="Reste à payer : {{ money(mk.remaining - mk.pending) }}" style="flex:{{ mk.remaining - mk.pending }};background:var(--track)"></span>{% endif %}
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--primary)"></i>Payé {{ money(mk.paid) }}</span>
+        {% if mk.pending %}<span><i class="dot" style="background:var(--moyen)"></i>Émis {{ money(mk.pending) }}</span>{% endif %}
+        <span><i class="dot" style="background:var(--track)"></i>Reste {{ money(mk.remaining - mk.pending if mk.remaining > mk.pending else 0) }}</span>
+      </div>
+    </div>
+    {% endif %}
+    {% if not ((d.works is defined and d.works.budget) or (d.marches is defined and d.marches.amount)) %}<div class="empty">Aucune donnée financière.</div>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+{# ---------- Carte + entretien ---------- #}
+<div class="grid cols dash-cols map-row">
+  {% if carte %}
+  <div class="card map-card">
+    <div class="card-head"><h2>Carte du réseau</h2><a class="more" href="{{ url_for('map.index') }}">Ouvrir la carte →</a></div>
+    <div id="mini-map" aria-label="Carte du réseau"></div>
+    <div class="legend" style="margin-top:.6rem">{% for k, label in conditions.items() %}<span><i class="dot" style="background:{{ cond_colors[k] }}"></i>{{ label }}</span>{% endfor %}</div>
+  </div>
+  {% endif %}
+  {% if d.maintenance is defined %}
+  <div class="card">
+    <div class="card-head"><h2>Entretien : en retard et à venir</h2><a class="more" href="{{ url_for('maintenance.index') }}">Tout voir →</a></div>
+    {% if d.maintenance.next %}
+    <table><tbody>
+      {% for m in d.maintenance.next %}
+      <tr><td><a class="code-link" href="{{ url_for('routes.detail', route_id=m.route.id) }}"><strong>{{ m.route.code }}</strong></a>
+          <div class="hint">{{ d.maintenance.kinds.get(m.kind, m.kind) }}</div></td>
+        <td style="text-align:right">{{ m.planned_date.strftime('%d/%m/%Y') }}
+          {% if m.is_late %}<div><span class="badge" style="background:var(--critique)">En retard</span></div>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody></table>
+    {% else %}<div class="empty">Aucune intervention à venir.</div>{% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{# ---------- Dernières routes et diagnostics ---------- #}
+<div class="grid cols dash-cols">
+  <div class="card">
+    <div class="card-head"><h2>Dernières routes ajoutées</h2><a class="more" href="{{ url_for('routes.index') }}">Tout voir →</a></div>
+    {% if R.recent %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Code</th><th>Nom</th><th>Île</th><th>Longueur</th><th>État</th></tr></thead>
+      <tbody>
+      {% for r in R.recent %}
+        <tr><td><a class="code-link" href="{{ url_for('routes.detail', route_id=r.id) }}"><strong>{{ r.code }}</strong></a></td>
+          <td>{{ r.name }}</td><td>{{ r.island }}</td><td>{{ '%.1f'|format(r.length_km) }} km</td>
+          <td><span class="badge" style="background:{{ cond_colors[r.condition] }}">{{ conditions[r.condition] }}</span></td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}<div class="empty">Aucune route enregistrée pour le moment.</div>{% endif %}
+  </div>
+  {% if d.diagnostics is defined %}
+  <div class="card">
+    <div class="card-head"><h2>Derniers diagnostics</h2><a class="more" href="{{ url_for('diagnostic.index') }}">Tout voir →</a></div>
+    {% if d.diagnostics.recent %}
+    <table><tbody>
+      {% for g in d.diagnostics.recent %}
+      <tr><td><a class="code-link" href="{{ url_for('diagnostic.edit', item_id=g.id) }}"><strong>{{ g.route.code }}</strong></a>
+          <div class="hint">{{ g.inspector or '—' }} · {{ g.inspected_on.strftime('%d/%m/%Y') }}</div></td>
+        <td style="text-align:right"><span class="badge" style="background:{{ cond_colors[g.condition] }}">{{ conditions[g.condition] }}</span></td></tr>
+      {% endfor %}
+    </tbody></table>
+    {% else %}<div class="empty">Aucun diagnostic.</div>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+{% if carte %}
+<script>window.MINI = {{ carte|tojson }}; window.MINI_URL = "{{ url_for('routes.detail', route_id=0) }}";</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+{% endif %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

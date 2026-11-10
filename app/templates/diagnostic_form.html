@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier le diagnostic' if item else 'Nouveau diagnostic' }}{% endblock %}
+{% macro field(f) %}
+  <div>{{ f.label }}{{ f(**kwargs) }}{% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Modifier le diagnostic' if item else 'Diagnostic d\'une route' }}</h1>
+  <a class="btn ghost" href="{{ url_for('diagnostic.index') }}">← Retour</a>
+</div>
+<div class="split">
+<form class="card" method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="form-grid">
+    {{ field(form.route_id) }}
+    <div class="date-field">{{ form.inspected_on.label }}
+      <div class="input-group">{{ form.inspected_on(type="date") }}<button type="button" class="suffix date-btn" aria-label="Ouvrir le calendrier">📅</button></div>
+      <div class="chips"><button type="button" data-set="inspected_on" data-add="0">Aujourd'hui</button><button type="button" data-set="inspected_on" data-add="-1">Hier</button></div>
+      {% for e in form.inspected_on.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+    {{ field(form.inspector) }}
+    {{ field(form.condition) }}
+    {{ field(form.surface) }}
+    {{ field(form.recommendation) }}
+  </div>
+
+  <div class="defects">
+    <label>{{ form.defects.label.text }}</label>
+    <div class="chips-check">
+      {% for sub in form.defects %}<label class="chk">{{ sub() }}<span>{{ sub.label.text }}</span></label>{% endfor %}
+    </div>
+  </div>
+
+  {{ field(form.notes) }}
+  <label class="check">{{ form.apply_condition() }} {{ form.apply_condition.label.text }}</label>
+  <div class="actions" style="display:flex;gap:.6rem;flex-wrap:wrap">
+    <button class="btn" type="submit">{{ 'Enregistrer' if item else 'Enregistrer le diagnostic' }}</button>
+    {% if item and item.recommendation != 'aucune' and can('entretien','write') %}
+    <a class="btn ghost" href="{{ url_for('maintenance.create', route_id=item.route_id, kind=item.recommendation, title='Suite au diagnostic du ' + item.inspected_on.strftime('%d/%m/%Y')) }}">Planifier l'intervention recommandée →</a>
+    {% endif %}
+  </div>
+</form>
+
+<aside class="card split-map route-preview" id="route-preview">
+  <div class="preview-head"><strong id="rp-title">Route sélectionnée</strong><span id="rp-meta" class="hint"></span></div>
+  <div id="rp-map" class="detail-map" style="height:460px"></div>
+  <div id="rp-empty" class="empty" hidden>Cette route n'a pas encore de tracé sur la carte.</div>
+</aside>
+</div>
+{% if item and current_user.may_delete %}
+<form class="card danger-zone" method="post" action="{{ url_for('diagnostic.delete', item_id=item.id) }}"
+      onsubmit="return confirm('Supprimer ce diagnostic ?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn danger" type="submit">Supprimer ce diagnostic</button>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>window.ROUTE_GEO = {{ route_geo|tojson }};</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="{{ url_for('static', filename='js/routing.js') }}"></script>
+<script src="{{ url_for('static', filename='js/route_preview.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dates.js') }}"></script>
+{% endblock %}

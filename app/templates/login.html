@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexion – SIGR-COMORES</title>
+<script>try{var t=localStorage.getItem('sigr-theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-page">
+{% include "_flash.html" %}
+<button type="button" class="theme-toggle floating" data-theme-toggle aria-label="Changer de thème"><span class="i-moon">🌙 Mode sombre</span><span class="i-sun">☀️ Mode clair</span></button>
+<form class="login-card" method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="brand">
+    <div class="logo">SIGR</div>
+    <h1>SIGR-COMORES</h1>
+    <p>Système Intégré de Gestion du Réseau routier</p>
+  </div>
+  {{ form.username.label }}
+  {{ form.username(autofocus=true, autocomplete="username") }}
+  {% for e in form.username.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+  {{ form.password.label }}
+  {{ form.password(autocomplete="current-password") }}
+  {% for e in form.password.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+  <label class="check">{{ form.remember() }} {{ form.remember.label.text }}</label>
+  <button class="btn block" type="submit">Se connecter</button>
+</form>
+<script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Routes{% endblock %}
+{% macro sort_th(key, label) %}
+  {% set new_order = 'desc' if (sort == key and order == 'asc') else 'asc' %}
+  <th><a class="sort" href="{{ url_for('routes.index', **dict(args, sort=key, order=new_order, page=None)) }}">{{ label }}{% if sort == key %} {{ '▲' if order == 'asc' else '▼' }}{% endif %}</a></th>
+{% endmacro %}
+{% block content %}
+{% set cond_colors = {'bon':'var(--bon)','moyen':'var(--moyen)','mauvais':'var(--mauvais)','critique':'var(--critique)'} %}
+{% set type_colors = {'RN':'var(--rn)','RR':'var(--rr)','SR':'var(--sr)'} %}
+<div class="page-head">
+  <div><h1>Routes</h1><p>{{ pagination.total }} résultat{{ 's' if pagination.total > 1 }}</p></div>
+  {% if can('routes','write') %}<a class="btn" href="{{ url_for('routes.create') }}">+ Nouvelle route</a>{% endif %}
+</div>
+
+<form class="card filters" method="get">
+  <input type="text" name="q" value="{{ q }}" placeholder="Rechercher (code, nom, départ, arrivée)…">
+  <select name="type"><option value="">Tous les types</option>
+    {% for k, v in route_types.items() %}<option value="{{ k }}" {{ 'selected' if k == rtype }}>{{ k }} · {{ v }}</option>{% endfor %}</select>
+  <select name="island"><option value="">Toutes les îles</option>
+    {% for i in islands %}<option {{ 'selected' if i == island }}>{{ i }}</option>{% endfor %}</select>
+  <select name="condition"><option value="">Tous les états</option>
+    {% for k, v in conditions.items() %}<option value="{{ k }}" {{ 'selected' if k == cond }}>{{ v }}</option>{% endfor %}</select>
+  <button class="btn" type="submit">Filtrer</button>
+  {% if q or rtype or island or cond %}<a class="btn ghost" href="{{ url_for('routes.index') }}">Réinitialiser</a>{% endif %}
+</form>
+
+<div class="card">
+  {% if pagination.items %}
+  <div class="table-wrap"><table>
+    <thead><tr>
+      {{ sort_th('code','Code') }}{{ sort_th('name','Nom') }}{{ sort_th('type','Type') }}
+      {{ sort_th('island','Île') }}{{ sort_th('length','Longueur') }}{{ sort_th('condition','État') }}<th></th>
+    </tr></thead>
+    <tbody>
+    {% for r in pagination.items %}
+      <tr>
+        <td><a class="code-link" href="{{ url_for('routes.detail', route_id=r.id) }}"><strong>{{ r.code }}</strong></a></td>
+        <td>{{ r.name }}{% if r.start_point and r.end_point %}<div class="hint">{{ r.start_point }} → {{ r.end_point }}</div>{% endif %}</td>
+        <td><span class="badge" style="background:{{ type_colors[r.type] }}">{{ r.type }}</span></td>
+        <td>{{ r.island }}</td><td>{{ '%.1f'|format(r.length_km) }} km</td>
+        <td><span class="badge" style="background:{{ cond_colors[r.condition] }}">{{ conditions[r.condition] }}</span></td>
+        <td class="actions-cell"><div class="row-actions">
+          <a class="btn ghost" href="{{ url_for('routes.detail', route_id=r.id) }}">Détail</a>
+          {% if can('routes','write') %}<a class="btn ghost" href="{{ url_for('routes.edit', route_id=r.id) }}">Modifier</a>{% endif %}
+          {% if current_user.may_delete %}
+          <form method="post" action="{{ url_for('routes.delete', route_id=r.id) }}" onsubmit="return confirm('Supprimer la route {{ r.code }} ?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn ghost danger-text" type="submit">Supprimer</button>
+          </form>{% endif %}
+        </div></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if pagination.pages > 1 %}
+  <div class="pager">
+    {% if pagination.has_prev %}<a class="btn ghost" href="{{ url_for('routes.index', **dict(args, page=pagination.prev_num)) }}">← Précédent</a>{% endif %}
+    <span>Page {{ pagination.page }} / {{ pagination.pages }}</span>
+    {% if pagination.has_next %}<a class="btn ghost" href="{{ url_for('routes.index', **dict(args, page=pagination.next_num)) }}">Suivant →</a>{% endif %}
+  </div>{% endif %}
+  {% else %}<div class="empty">Aucune route trouvée.</div>{% endif %}
+</div>
+{% endblock %}

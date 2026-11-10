@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Rapport{% endblock %}
+{% block content %}
+{% set cond_colors = {'bon':'var(--bon)','moyen':'var(--moyen)','mauvais':'var(--mauvais)','critique':'var(--critique)'} %}
+{% set type_colors = {'RN':'var(--rn)','RR':'var(--rr)','SR':'var(--sr)'} %}
+{% macro kmf(n) %}{{ '{:,}'.format(n|int).replace(',', ' ') }} KMF{% endmacro %}
+{% set n = rep.network %}
+
+<div class="page-head">
+  <div>
+    <h1>Rapport du réseau routier</h1>
+    <p>Période du {{ flt['from'].strftime('%d/%m/%Y') }} au {{ flt['to'].strftime('%d/%m/%Y') }}
+      {% if flt.island %}· {{ flt.island }}{% endif %}{% if flt.type %}· {{ route_types[flt.type] }}s{% endif %}
+      <span class="print-only"> · généré le {{ now.strftime('%d/%m/%Y à %H:%M') }}</span></p>
+  </div>
+  <div class="head-actions no-print">
+    <a class="btn ghost" href="{{ url_for('reports.export_csv', **args) }}">⬇ Exporter (CSV)</a>
+    <button class="btn" type="button" onclick="window.print()">🖨 Imprimer / PDF</button>
+  </div>
+</div>
+
+<form class="card filters no-print" method="get">
+  <label class="inline">Du <input type="date" name="from" value="{{ flt['from'].isoformat() }}"></label>
+  <label class="inline">au <input type="date" name="to" value="{{ flt['to'].isoformat() }}"></label>
+  <select name="island"><option value="">Toutes les îles</option>
+    {% for i in islands %}<option {{ 'selected' if i == flt.island }}>{{ i }}</option>{% endfor %}</select>
+  <select name="type"><option value="">Tous les types</option>
+    {% for k, v in route_types.items() %}<option value="{{ k }}" {{ 'selected' if k == flt.type }}>{{ k }} · {{ v }}</option>{% endfor %}</select>
+  <button class="btn" type="submit">Générer</button>
+</form>
+
+<h2 class="rep-title">1. Synthèse du réseau</h2>
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Routes</div><div class="value">{{ n.count }}</div></div>
+  <div class="card kpi"><div class="label">Linéaire total</div><div class="value">{{ n.km }} <span class="unit">km</span></div></div>
+  <div class="card kpi warn"><div class="label">Linéaire en mauvais / critique</div><div class="value">{{ n.km_bad }} <span class="unit">km</span></div></div>
+  <div class="card kpi"><div class="label">Part du linéaire dégradé</div><div class="value">{{ ((n.km_bad / n.km * 100)|round|int) if n.km else 0 }} <span class="unit">%</span></div></div>
+</div>
+<div class="grid cols">
+  <div class="card"><h2>Par type de route</h2>
+    <table><thead><tr><th>Type</th><th>Routes</th><th>Linéaire</th><th>Dégradées</th></tr></thead><tbody>
+    {% for k, label in route_types.items() %}{% set g = n.by_type[k] %}
+      <tr><td><span class="badge" style="background:{{ type_colors[k] }}">{{ k }}</span> {{ label }}</td><td>{{ g.count }}</td><td>{{ g.km }} km</td><td>{{ g.bad }}</td></tr>
+    {% endfor %}</tbody></table></div>
+  <div class="card"><h2>Par île</h2>
+    <table><thead><tr><th>Île</th><th>Routes</th><th>Linéaire</th><th>Dégradées</th></tr></thead><tbody>
+    {% for i in islands %}{% set g = n.by_island[i] %}<tr><td>{{ i }}</td><td>{{ g.count }}</td><td>{{ g.km }} km</td><td>{{ g.bad }}</td></tr>{% endfor %}
+    </tbody></table></div>
+  <div class="card"><h2>État du réseau</h2>
+    {% if n.count %}
+    <div class="stack">{% for k, label in conditions.items() if n.by_condition[k] %}<span title="{{ label }} : {{ n.by_condition[k] }}" style="width:{{ n.by_condition[k] / n.count * 100 }}%;background:{{ cond_colors[k] }}"></span>{% endfor %}</div>
+    <div class="legend">{% for k, label in conditions.items() %}<span><i class="dot" style="background:{{ cond_colors[k] }}"></i>{{ label }} ({{ n.by_condition[k] }})</span>{% endfor %}</div>
+    {% else %}<div class="empty">Aucune route.</div>{% endif %}</div>
+</div>
+
+<h2 class="rep-title">2. Routes prioritaires <span class="hint">(état mauvais ou critique)</span></h2>
+<div class="card">
+  {% if rep.priority %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Route</th><th>État</th><th>Île</th><th>Longueur</th><th>Dernier diagnostic</th><th>Intervention</th></tr></thead><tbody>
+    {% for x in rep.priority %}{% set r = x.route %}
+      <tr><td><a class="code-link" href="{{ url_for('routes.detail', route_id=r.id) }}"><strong>{{ r.code }}</strong></a><div class="hint">{{ r.name }}</div></td>
+        <td><span class="badge" style="background:{{ cond_colors[r.condition] }}">{{ conditions[r.condition] }}</span></td>
+        <td>{{ r.island }}</td><td>{{ '%.1f'|format(r.length_km) }} km</td>
+        <td>{{ x.last_diag.inspected_on.strftime('%d/%m/%Y') if x.last_diag else '—' }}</td>
+        <td>{% if x.pending %}<span class="badge" style="background:var(--bon)">Prévue / en cours</span>{% else %}<span class="badge" style="background:var(--critique)">Aucune prévue</span>{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty">Aucune route dégradée. 🎉</div>{% endif %}
+</div>
+
+<h2 class="rep-title">3. Diagnostics <span class="hint">(sur la période)</span></h2>
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Diagnostics réalisés</div><div class="value">{{ rep.diag.count }}</div></div>
+  <div class="card kpi"><div class="label">Routes inspectées</div><div class="value">{{ rep.diag.routes }} <span class="unit">/ {{ n.count }}</span></div></div>
+  <div class="card kpi warn"><div class="label">Jamais diagnostiquées</div><div class="value">{{ rep.diag.never }}</div></div>
+</div>
+<div class="grid cols">
+  <div class="card"><h2>État constaté</h2><div class="legend">
+    {% for k, label in conditions.items() %}<span><i class="dot" style="background:{{ cond_colors[k] }}"></i>{{ label }} : <strong>{{ rep.diag.by_condition[k] }}</strong></span>{% endfor %}</div></div>
+  <div class="card"><h2>Actions recommandées</h2>
+    <table><tbody>{% for k, label in recos.items() %}<tr><td>{{ label }}</td><td style="text-align:right"><strong>{{ rep.diag.by_reco[k] }}</strong></td></tr>{% endfor %}</tbody></table></div>
+</div>
+
+<h2 class="rep-title">4. Entretien <span class="hint">(sur la période)</span></h2>
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Interventions</div><div class="value">{{ rep.maint.count }}</div></div>
+  <div class="card kpi"><div class="label">Terminées</div><div class="value">{{ rep.maint.by_status.termine }}</div></div>
+  <div class="card kpi warn"><div class="label">En retard</div><div class="value">{{ rep.maint.late }}</div></div>
+  <div class="card kpi"><div class="label">Coût (terminées)</div><div class="value" style="font-size:1.4rem">{{ kmf(rep.maint.cost) }}</div></div>
+</div>
+<div class="grid cols">
+  <div class="card"><h2>Par statut</h2><table><tbody>
+    {% for k, label in m_status.items() %}<tr><td>{{ label }}</td><td style="text-align:right"><strong>{{ rep.maint.by_status[k] }}</strong></td></tr>{% endfor %}</tbody></table></div>
+  <div class="card"><h2>Par type d'intervention</h2><table><thead><tr><th>Type</th><th>Nb</th><th>Coût (terminées)</th></tr></thead><tbody>
+    {% for k, label in kinds.items() %}{% set g = rep.maint.by_kind[k] %}<tr><td>{{ label }}</td><td>{{ g.count }}</td><td>{{ kmf(g.cost) }}</td></tr>{% endfor %}</tbody></table></div>
+</div>
+
+<h2 class="rep-title">5. Travaux <span class="hint">(chantiers débutés sur la période + non datés en cours)</span></h2>
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Chantiers</div><div class="value">{{ rep.works.count }}</div></div>
+  <div class="card kpi"><div class="label">Avancement moyen (en cours)</div><div class="value">{{ rep.works.avg }} <span class="unit">%</span></div></div>
+  <div class="card kpi warn"><div class="label">En retard</div><div class="value">{{ rep.works.late }}</div></div>
+  <div class="card kpi"><div class="label">Budget</div><div class="value" style="font-size:1.4rem">{{ kmf(rep.works.budget) }}</div></div>
+  <div class="card kpi {{ 'warn' if rep.works.over }}"><div class="label">Dépensé{% if rep.works.over %} · {{ rep.works.over }} dépassement{{ 's' if rep.works.over > 1 }}{% endif %}</div><div class="value" style="font-size:1.4rem">{{ kmf(rep.works.spent) }}</div></div>
+</div>
+<div class="grid cols">
+  <div class="card"><h2>Par statut</h2><table><tbody>
+    {% for k, c in rep.works.by_status.items() %}<tr><td>{{ w_status[k] }}</td><td style="text-align:right"><strong>{{ c }}</strong></td></tr>{% endfor %}</tbody></table></div>
+  <div class="card"><h2>Par nature</h2><table><tbody>
+    {% for k, label in w_kinds.items() %}<tr><td>{{ label }}</td><td style="text-align:right"><strong>{{ rep.works.by_kind[k] }}</strong></td></tr>{% endfor %}</tbody></table></div>
+</div>
+
+<h2 class="rep-title">6. Ouvrages d'assainissement <span class="hint">(inventaire actuel)</span></h2>
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Ouvrages recensés</div><div class="value">{{ rep.ouvrages.count }}</div></div>
+  <div class="card kpi warn"><div class="label">Mauvais ou critique</div><div class="value">{{ rep.ouvrages.bad }}</div></div>
+  <div class="card kpi warn"><div class="label">À inspecter (&gt; 1 an ou jamais)</div><div class="value">{{ rep.ouvrages.stale }}</div></div>
+</div>
+<div class="grid cols">
+  <div class="card"><h2>Par type</h2><table><thead><tr><th>Type</th><th>Nb</th><th>Dégradés</th></tr></thead><tbody>
+    {% for k, label in s_kinds.items() %}{% set g = rep.ouvrages.by_kind[k] %}<tr><td>{{ label }}</td><td>{{ g.count }}</td><td>{{ g.bad }}</td></tr>{% endfor %}</tbody></table></div>
+  <div class="card"><h2>Par état</h2><div class="legend">
+    {% for k, label in conditions.items() %}<span><i class="dot" style="background:{{ cond_colors[k] }}"></i>{{ label }} : <strong>{{ rep.ouvrages.by_condition[k] }}</strong></span>{% endfor %}</div></div>
+</div>
+
+<h2 class="rep-title">7. Marchés et dépenses <span class="hint">(marchés signés sur la période ; tous les marchés, quel que soit le filtre île / type)</span></h2>
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Marchés</div><div class="value">{{ rep.marches.count }}</div></div>
+  <div class="card kpi"><div class="label">Montant des marchés</div><div class="value" style="font-size:1.3rem">{{ kmf(rep.marches.amount) }}</div></div>
+  <div class="card kpi"><div class="label">Payé (cumul)</div><div class="value" style="font-size:1.3rem">{{ kmf(rep.marches.paid) }}</div></div>
+  <div class="card kpi"><div class="label">Dépenses de la période</div><div class="value" style="font-size:1.3rem">{{ kmf(rep.marches.spent_period) }}</div></div>
+  <div class="card kpi"><div class="label">Reste à payer</div><div class="value" style="font-size:1.3rem">{{ kmf(rep.marches.remaining) }}</div></div>
+  <div class="card kpi warn"><div class="label">En retard{% if rep.marches.over %} · {{ rep.marches.over }} dépassement{{ 's' if rep.marches.over > 1 }}{% endif %}</div><div class="value">{{ rep.marches.late }}</div></div>
+</div>
+<div class="grid cols">
+  <div class="card"><h2>Par statut</h2><table><tbody>
+    {% for k, label in mk_status.items() %}<tr><td>{{ label }}</td><td style="text-align:right"><strong>{{ rep.marches.by_status[k] }}</strong></td></tr>{% endfor %}</tbody></table></div>
+  <div class="card"><h2>Principales entreprises</h2>
+    {% if rep.marches.top %}<table><thead><tr><th>Entreprise</th><th>Marchés</th><th>Montant</th><th>Payé</th></tr></thead><tbody>
+      {% for name, g in rep.marches.top %}<tr><td>{{ name }}</td><td>{{ g.count }}</td><td>{{ kmf(g.amount) }}</td><td>{{ kmf(g.paid) }}</td></tr>{% endfor %}</tbody></table>
+    {% else %}<div class="empty">Aucun marché.</div>{% endif %}</div>
+</div>
+
+<h2 class="rep-title">8. Détail par route</h2>
+<div class="card">
+  {% if rep.rows %}
+  <div class="table-wrap"><table class="compact">
+    <thead><tr><th>Route</th><th>Type</th><th>Île</th><th>Km</th><th>État</th><th>Dernier diag.</th><th>Entretien</th><th>Coût entretien</th><th>Chantiers</th><th>Dépensé</th><th>Ouvrages</th></tr></thead><tbody>
+    {% for x in rep.rows %}{% set r = x.route %}
+      <tr><td><a class="code-link" href="{{ url_for('routes.detail', route_id=r.id) }}"><strong>{{ r.code }}</strong></a></td>
+        <td>{{ r.type }}</td><td>{{ r.island }}</td><td>{{ '%.1f'|format(r.length_km) }}</td>
+        <td><span class="badge" style="background:{{ cond_colors[r.condition] }}">{{ conditions[r.condition] }}</span></td>
+        <td>{{ x.last_diag.inspected_on.strftime('%d/%m/%Y') if x.last_diag else '—' }}</td>
+        <td>{{ x.maint_n }}</td><td>{{ kmf(x.maint_cost) }}</td><td>{{ x.works_n }}</td><td>{{ kmf(x.works_spent) }}</td><td>{{ x.ouv_n }}{% if x.ouv_bad %} <span class="badge" style="background:var(--mauvais)" title="dégradés">{{ x.ouv_bad }}</span>{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty">Aucune route pour ces critères.</div>{% endif %}
+</div>
+{% endblock %}

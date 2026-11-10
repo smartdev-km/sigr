@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Utilisateurs{% endblock %}
+{% block content %}
+{% set lv = {'none':'—','read':'Lecture','write':'Écriture'} %}
+<div class="page-head">
+  <div><h1>Utilisateurs</h1><p>{{ users|length }} compte{{ 's' if users|length > 1 }}</p></div>
+  <a class="btn" href="{{ url_for('users.create') }}">+ Nouveau compte</a>
+</div>
+<form class="card filters" method="get">
+  <input type="text" name="q" value="{{ q }}" placeholder="Rechercher (nom, identifiant, e-mail)…">
+  <button class="btn" type="submit">Filtrer</button>
+  {% if q %}<a class="btn ghost" href="{{ url_for('users.index') }}">Réinitialiser</a>{% endif %}
+</form>
+<div class="card">
+  <div class="table-wrap"><table>
+    <thead><tr><th>Utilisateur</th><th>Rôle</th><th>Accès par module</th><th>Suppr.</th><th>Dernière connexion</th><th>Statut</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr class="{{ '' if u.is_active_account else 'inactive-row' }}">
+        <td><strong>{{ u.full_name }}</strong><div class="hint">@{{ u.username }}{% if u.email %} · {{ u.email }}{% endif %}</div></td>
+        <td>{% if u.is_admin %}<span class="badge" style="background:var(--primary)">Administrateur</span>{% else %}Utilisateur{% endif %}</td>
+        <td>
+          {% if u.is_admin %}<span class="hint">Tous les droits</span>{% else %}
+          <div class="perm-chips">{% set pd = u.perm_dict() %}
+            {% for m, label in modules.items() %}{% set l = u.level(m) %}
+              <span class="pc pc-{{ l }}" title="{{ label }} : {{ levels[l] }}">{{ label }} <b>{{ lv[l] }}</b></span>
+            {% endfor %}</div>{% endif %}
+        </td>
+        <td>{{ '✔' if u.may_delete else '—' }}</td>
+        <td>{{ u.last_login.strftime('%d/%m/%Y %H:%M') if u.last_login else 'Jamais' }}
+          {% if u.must_change_password %}<div class="hint">mot de passe à changer</div>{% endif %}</td>
+        <td>{% if u.is_active_account %}<span class="badge" style="background:var(--bon)">Actif</span>{% else %}<span class="badge" style="background:var(--muted)">Désactivé</span>{% endif %}</td>
+        <td class="actions-cell"><div class="row-actions">
+          <a class="btn ghost" href="{{ url_for('users.edit', user_id=u.id) }}">Modifier</a>
+          {% if u.id != current_user.id %}
+          <form method="post" action="{{ url_for('users.toggle', user_id=u.id) }}" onsubmit="return confirm('{{ 'Désactiver' if u.is_active_account else 'Réactiver' }} le compte {{ u.username }} ?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn ghost {{ 'danger-text' if u.is_active_account }}" type="submit">{{ 'Désactiver' if u.is_active_account else 'Réactiver' }}</button>
+          </form>{% endif %}
+        </div></td>
+      </tr>
+    {% else %}<tr><td colspan="7" class="empty">Aucun utilisateur.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}

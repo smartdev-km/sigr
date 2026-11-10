@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Route {{ route.code }}{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+{% endblock %}
+{% block content %}
+{% set cond_colors = {'bon':'var(--bon)','moyen':'var(--moyen)','mauvais':'var(--mauvais)','critique':'var(--critique)'} %}
+{% set type_colors = {'RN':'var(--rn)','RR':'var(--rr)','SR':'var(--sr)'} %}
+{% set has_pts = route.start_lat is not none and route.end_lat is not none %}
+<div class="page-head">
+  <div>
+    <h1>{{ route.code }} <span class="badge" style="background:{{ type_colors[route.type] }};vertical-align:middle">{{ route_types[route.type] }}</span></h1>
+    <p>{{ route.name }}</p>
+  </div>
+  <div class="head-actions">
+    <a class="btn ghost" href="{{ url_for('routes.index') }}">← Liste</a>
+    {% if can('routes','write') %}<a class="btn" href="{{ url_for('routes.edit', route_id=route.id) }}">Modifier</a>{% endif %}
+  </div>
+</div>
+
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Longueur</div><div class="value">{{ '%.1f'|format(route.length_km) }} <span class="unit">km</span></div></div>
+  <div class="card kpi"><div class="label">État</div><div class="value" style="color:{{ cond_colors[route.condition] }}">{{ conditions[route.condition] }}</div></div>
+  <div class="card kpi"><div class="label">Île</div><div class="value" style="font-size:1.5rem">{{ route.island }}</div></div>
+</div>
+
+<div class="grid cols">
+  <div class="card">
+    <h2>Informations</h2>
+    <dl class="info">
+      <dt>Code</dt><dd>{{ route.code }}</dd>
+      <dt>Type</dt><dd>{{ route_types[route.type] }} ({{ route.type }})</dd>
+      <dt>Nom / Tronçon</dt><dd>{{ route.name }}</dd>
+      <dt>Île</dt><dd>{{ route.island }}</dd>
+      <dt>Point de départ</dt><dd>{{ route.start_point or '—' }}</dd>
+      {% for v in route.waypoint_list %}<dt>Point {{ loop.index }}</dt><dd>{{ v.name or ('%.4f, %.4f'|format(v.lat, v.lng)) }}</dd>{% endfor %}
+      <dt>Point d'arrivée</dt><dd>{{ route.end_point or '—' }}</dd>
+      <dt>Créée le</dt><dd>{{ route.created_at.strftime('%d/%m/%Y %H:%M') if route.created_at else '—' }}</dd>
+      <dt>Dernière modification</dt><dd>{{ route.updated_at.strftime('%d/%m/%Y %H:%M') if route.updated_at else '—' }}</dd>
+    </dl>
+  </div>
+  <div class="card">
+    <h2>Notes</h2>
+    {% if route.notes %}<p class="notes">{{ route.notes }}</p>{% else %}<div class="empty">Aucune note.</div>{% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Tracé</h2>
+  {% if has_pts %}
+  <div id="detail-map" class="detail-map"
+       data-slat="{{ route.start_lat }}" data-slng="{{ route.start_lng }}"
+       data-elat="{{ route.end_lat }}" data-elng="{{ route.end_lng }}"
+       data-vias='{{ route.waypoint_list|tojson|forceescape }}'></div>
+  <div class="coords"><span>A : {{ '%.5f'|format(route.start_lat) }}, {{ '%.5f'|format(route.start_lng) }}</span>
+    <span>B : {{ '%.5f'|format(route.end_lat) }}, {{ '%.5f'|format(route.end_lng) }}</span></div>
+  {% else %}
+  <div class="empty">Aucun point placé sur la carte.
+    <a href="{{ url_for('routes.edit', route_id=route.id) }}">Ajouter le tracé</a></div>
+  {% endif %}
+</div>
+
+{% if can('ouvrages') %}
+<div class="card" style="margin-top:1rem">
+  <div class="page-head" style="margin-bottom:.6rem"><h2>Ouvrages d'assainissement</h2>
+    {% if can('ouvrages','write') %}<a class="btn ghost" href="{{ url_for('ouvrages.create', route_id=route.id) }}">+ Ouvrage</a>{% endif %}</div>
+  {% if route.ouvrages %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Référence</th><th>Type</th><th>PK</th><th>État</th><th></th></tr></thead>
+    <tbody>{% for o in route.ouvrages %}
+      <tr><td><strong>{{ o.ref or ('#' ~ o.id) }}</strong></td>
+        <td>{{ {'buse':'Buse','dalot':'Dalot','ponceau':'Ponceau','caniveau':'Caniveau','fosse':'Fossé','radier':'Radier','regard':'Regard / avaloir','pont':"Pont / ouvrage d'art",'mur':'Mur de soutènement'}.get(o.kind, o.kind) }}</td>
+        <td>{{ '%.3f km'|format(o.pk_km) if o.pk_km is not none else '—' }}</td>
+        <td><span class="badge" style="background:{{ cond_colors[o.condition] }}">{{ conditions[o.condition] }}</span></td>
+        <td class="actions-cell"><a class="btn ghost" href="{{ url_for('ouvrages.edit', item_id=o.id) }}">Détail</a></td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty">Aucun ouvrage recensé sur cette route.</div>{% endif %}
+</div>
+{% endif %}
+
+{% if can('travaux') %}
+<div class="card" style="margin-top:1rem">
+  <div class="page-head" style="margin-bottom:.6rem"><h2>Travaux</h2>
+    {% if can('travaux','write') %}<a class="btn ghost" href="{{ url_for('works.create', route_id=route.id) }}">+ Chantier</a>{% endif %}</div>
+  {% if route.works %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Chantier</th><th>Statut</th><th>Avancement</th><th></th></tr></thead>
+    <tbody>{% for w in route.works %}
+      <tr><td>{{ w.title }}</td>
+        <td>{% if w.is_late %}<span class="badge" style="background:var(--critique)">En retard</span>{% else %}{{ {'etude':'Étude','appel_offres':"Appel d'offres",'en_cours':'En cours','suspendu':'Suspendu','receptionne':'Réceptionné','annule':'Annulé'}[w.status] }}{% endif %}</td>
+        <td>{{ w.progress }} %</td>
+        <td class="actions-cell"><a class="btn ghost" href="{{ url_for('works.edit', item_id=w.id) }}">Détail</a></td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty">Aucun chantier enregistré.</div>{% endif %}
+</div>
+{% endif %}
+
+{% if can('diagnostic') %}
+<div class="card" style="margin-top:1rem">
+  <div class="page-head" style="margin-bottom:.6rem"><h2>Diagnostics</h2>
+    {% if can('diagnostic','write') %}<a class="btn ghost" href="{{ url_for('diagnostic.create', route_id=route.id) }}">+ Diagnostiquer</a>{% endif %}</div>
+  {% if route.diagnostics %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>État constaté</th><th>Action recommandée</th><th>Inspecteur</th><th></th></tr></thead>
+    <tbody>{% for d in route.diagnostics %}
+      <tr><td>{{ d.inspected_on.strftime('%d/%m/%Y') }}</td>
+        <td><span class="badge" style="background:{{ cond_colors[d.condition] }}">{{ conditions[d.condition] }}</span></td>
+        <td>{{ {'aucune':'Aucune action','preventif':'Entretien préventif','curatif':'Entretien curatif','rehabilitation':'Réhabilitation','urgence':"Intervention d'urgence"}[d.recommendation] }}</td>
+        <td>{{ d.inspector or '—' }}</td>
+        <td class="actions-cell"><a class="btn ghost" href="{{ url_for('diagnostic.edit', item_id=d.id) }}">Détail</a></td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty">Aucun diagnostic réalisé.</div>{% endif %}
+</div>
+{% endif %}
+
+{% if can('entretien') %}
+<div class="card" style="margin-top:1rem">
+  <div class="page-head" style="margin-bottom:.6rem"><h2>Entretien</h2>
+    {% if can('entretien','write') %}<a class="btn ghost" href="{{ url_for('maintenance.create', route_id=route.id) }}">+ Planifier</a>{% endif %}</div>
+  {% if route.maintenances %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date prévue</th><th>Intervention</th><th>Statut</th><th></th></tr></thead>
+    <tbody>{% for m in route.maintenances %}
+      <tr><td>{{ m.planned_date.strftime('%d/%m/%Y') }}</td><td>{{ m.title }}</td>
+        <td>{% if m.is_late %}<span class="badge" style="background:var(--critique)">En retard</span>{% else %}{{ {'planifie':'Planifié','en_cours':'En cours','termine':'Terminé','annule':'Annulé'}[m.status] }}{% endif %}</td>
+        <td class="actions-cell"><a class="btn ghost" href="{{ url_for('maintenance.edit', item_id=m.id) }}">Modifier</a></td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty">Aucune intervention enregistrée.</div>{% endif %}
+</div>
+{% endif %}
+
+{% if current_user.may_delete %}
+<form class="card danger-zone" method="post" action="{{ url_for('routes.delete', route_id=route.id) }}"
+      onsubmit="return confirm('Supprimer définitivement la route {{ route.code }} ?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn danger" type="submit">Supprimer cette route</button>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if route.start_lat is not none and route.end_lat is not none %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="{{ url_for('static', filename='js/routing.js') }}"></script>
+<script src="{{ url_for('static', filename='js/route_detail.js') }}"></script>
+{% endif %}
+{% endblock %}

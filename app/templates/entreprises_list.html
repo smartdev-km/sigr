@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Entreprises{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Marchés et entreprises</h1><p>Entreprises titulaires et prestataires · {{ items|length }} entreprise{{ 's' if items|length > 1 }}</p></div>
+  {% if can('marches','write') %}<a class="btn" href="{{ url_for('entreprises.create') }}">+ Nouvelle entreprise</a>{% endif %}
+</div>
+{% include "_contract_tabs.html" %}
+<form class="card filters" method="get">
+  <input type="text" name="q" value="{{ q }}" placeholder="Rechercher (nom, sigle, spécialité, contact)…">
+  <select name="state"><option value="">Toutes</option><option value="active" {{ 'selected' if state == 'active' }}>Actives</option><option value="inactive" {{ 'selected' if state == 'inactive' }}>Inactives</option></select>
+  <button class="btn" type="submit">Filtrer</button>
+  {% if q or state %}<a class="btn ghost" href="{{ url_for('entreprises.index') }}">Réinitialiser</a>{% endif %}
+</form>
+<div class="card">
+  {% if items %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Entreprise</th><th>Contact</th><th>Spécialités</th><th>Marchés</th><th>Montant</th><th>Payé</th><th></th></tr></thead><tbody>
+    {% for e in items %}{% set ms = e.marches %}
+      <tr class="{{ '' if e.active else 'inactive-row' }}">
+        <td><a class="code-link" href="{{ url_for('entreprises.detail', item_id=e.id) }}"><strong>{{ e.name }}</strong></a>{% if e.acronym %} <span class="hint">({{ e.acronym }})</span>{% endif %}
+          <div class="hint">{{ e.island or '' }}{% if e.approved %}{{ ' · ' if e.island }}agréée{% endif %}{% if not e.active %} · inactive{% endif %}</div></td>
+        <td>{{ e.contact_name or '—' }}{% if e.phone %}<div class="hint">{{ e.phone }}</div>{% endif %}</td>
+        <td>{{ e.specialties or '—' }}</td>
+        <td>{{ ms|length }}</td>
+        <td>{{ kmf(ms|sum(attribute='current_amount')) }}</td>
+        <td>{{ kmf(ms|sum(attribute='paid')) }}</td>
+        <td class="actions-cell"><div class="row-actions"><a class="btn ghost" href="{{ url_for('entreprises.detail', item_id=e.id) }}">Détail</a></div></td>
+      </tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}<div class="empty">Aucune entreprise.{% if can('marches','write') %} <a href="{{ url_for('entreprises.create') }}">Enregistrer la première</a>{% endif %}</div>{% endif %}
+</div>
+{% endblock %}

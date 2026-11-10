@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Diagnostic{% endblock %}
+{% block content %}
+{% set cond_colors = {'bon':'var(--bon)','moyen':'var(--moyen)','mauvais':'var(--mauvais)','critique':'var(--critique)'} %}
+<div class="page-head">
+  <div><h1>Diagnostic du réseau</h1><p>{{ pagination.total }} diagnostic{{ 's' if pagination.total > 1 }}</p></div>
+  {% if can('diagnostic','write') %}<a class="btn" href="{{ url_for('diagnostic.create') }}">+ Nouveau diagnostic</a>{% endif %}
+</div>
+
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Routes diagnostiquées</div><div class="value">{{ ov.inspected }} <span class="unit">/ {{ ov.total_routes }}</span></div></div>
+  <div class="card kpi warn"><div class="label">Jamais diagnostiquées</div><div class="value">{{ ov.never }}</div></div>
+  <div class="card kpi warn"><div class="label">À réinspecter (&gt; {{ stale_days // 365 }} an)</div><div class="value">{{ ov.stale }}</div></div>
+  <div class="card kpi"><div class="label">Dernier état critique</div><div class="value" style="color:var(--critique)">{{ ov.critical }}</div></div>
+</div>
+
+<div class="grid cols">
+  <div class="card">
+    <h2>État constaté (tous diagnostics)</h2>
+    {% set tot = by_cond.values()|sum %}
+    {% if tot %}
+    <div class="stack">{% for k, label in conditions.items() if by_cond[k] %}<span title="{{ label }} : {{ by_cond[k] }}" style="width:{{ by_cond[k] / tot * 100 }}%;background:{{ cond_colors[k] }}"></span>{% endfor %}</div>
+    <div class="legend">{% for k, label in conditions.items() %}<span><i class="dot" style="background:{{ cond_colors[k] }}"></i>{{ label }} ({{ by_cond[k] }})</span>{% endfor %}</div>
+    {% else %}<div class="empty">Aucun diagnostic.</div>{% endif %}
+  </div>
+  <div class="card">
+    <h2>Routes à inspecter</h2>
+    {% if ov.to_inspect %}
+    <table><tbody>
+      {% for r in ov.to_inspect %}
+      <tr><td><a class="code-link" href="{{ url_for('routes.detail', route_id=r.id) }}"><strong>{{ r.code }}</strong></a>
+          <div class="hint">{{ r.name }}</div></td>
+        <td>{% if ov.last.get(r.id) %}<span class="hint">dernier : {{ ov.last[r.id].strftime('%d/%m/%Y') }}</span>{% else %}<span class="badge" style="background:var(--muted)">Jamais</span>{% endif %}</td>
+        <td class="actions-cell">{% if can('diagnostic','write') %}<a class="btn ghost" href="{{ url_for('diagnostic.create', route_id=r.id) }}">Diagnostiquer</a>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody></table>
+    {% else %}<div class="empty">Toutes les routes sont à jour. 🎉</div>{% endif %}
+  </div>
+</div>
+
+<form class="card filters" method="get">
+  <input type="text" name="q" value="{{ q }}" placeholder="Rechercher (route, inspecteur)…">
+  <select name="condition"><option value="">Tous les états</option>
+    {% for k, v in conditions.items() %}<option value="{{ k }}" {{ 'selected' if k == cond }}>{{ v }}</option>{% endfor %}</select>
+  <select name="reco"><option value="">Toutes les actions</option>
+    {% for k, v in recos.items() %}<option value="{{ k }}" {{ 'selected' if k == reco }}>{{ v }}</option>{% endfor %}</select>
+  <button class="btn" type="submit">Filtrer</button>
+  {% if q or cond or reco %}<a class="btn ghost" href="{{ url_for('diagnostic.index') }}">Réinitialiser</a>{% endif %}
+</form>
+
+<div class="card">
+  {% if pagination.items %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Route</th><th>État constaté</th><th>Désordres</th><th>Action recommandée</th><th>Inspecteur</th><th></th></tr></thead>
+    <tbody>
+    {% for d in pagination.items %}
+      <tr>
+        <td>{{ d.inspected_on.strftime('%d/%m/%Y') }}</td>
+        <td><a class="code-link" href="{{ url_for('routes.detail', route_id=d.route.id) }}"><strong>{{ d.route.code }}</strong></a></td>
+        <td><span class="badge" style="background:{{ cond_colors[d.condition] }}">{{ conditions[d.condition] }}</span></td>
+        <td>{% set dl = d.defect_list %}{% if dl %}<span title="{{ dl|map('extract', defects)|join(', ') }}">{{ dl|length }} relevé{{ 's' if dl|length > 1 }}</span>{% else %}—{% endif %}</td>
+        <td>{{ recos[d.recommendation] }}</td>
+        <td>{{ d.inspector or '—' }}</td>
+        <td class="actions-cell"><div class="row-actions"><a class="btn ghost" href="{{ url_for('diagnostic.edit', item_id=d.id) }}">Détail</a></div></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if pagination.pages > 1 %}
+  <div class="pager">
+    {% if pagination.has_prev %}<a class="btn ghost" href="{{ url_for('diagnostic.index', **dict(args, page=pagination.prev_num)) }}">← Précédent</a>{% endif %}
+    <span>Page {{ pagination.page }} / {{ pagination.pages }}</span>
+    {% if pagination.has_next %}<a class="btn ghost" href="{{ url_for('diagnostic.index', **dict(args, page=pagination.next_num)) }}">Suivant →</a>{% endif %}
+  </div>{% endif %}
+  {% else %}<div class="empty">Aucun diagnostic. {% if can('diagnostic','write') %}<a href="{{ url_for('diagnostic.create') }}">Réaliser le premier</a>{% endif %}</div>{% endif %}
+</div>
+{% endblock %}

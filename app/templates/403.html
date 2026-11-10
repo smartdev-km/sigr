@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Accès refusé{% endblock %}
+{% block content %}
+<div class="card" style="max-width:520px;margin:3rem auto;text-align:center">
+  <div style="font-size:2.5rem">🔒</div>
+  <h1 style="font-size:1.4rem;margin:.5rem 0">Accès refusé</h1>
+  <p class="hint" style="font-size:.95rem">Votre compte n'a pas les droits nécessaires pour cette action. Contactez un administrateur si vous pensez que c'est une erreur.</p>
+  <a class="btn" href="{{ url_for('dashboard.index') }}">Retour au tableau de bord</a>
+</div>
+{% endblock %}

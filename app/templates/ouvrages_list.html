@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Ouvrages{% endblock %}
+{% block content %}
+{% set cond_colors = {'bon':'var(--bon)','moyen':'var(--moyen)','mauvais':'var(--mauvais)','critique':'var(--critique)'} %}
+<div class="page-head">
+  <div><h1>Ouvrages d'assainissement</h1><p>Inventaire des ouvrages hydrauliques et de franchissement · {{ pagination.total }} résultat{{ 's' if pagination.total > 1 }}</p></div>
+  {% if can('ouvrages','write') %}<a class="btn" href="{{ url_for('ouvrages.create') }}">+ Nouvel ouvrage</a>{% endif %}
+</div>
+
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Ouvrages recensés</div><div class="value">{{ total }}</div></div>
+  <div class="card kpi warn"><div class="label">Mauvais ou critique</div><div class="value">{{ by_cond.mauvais + by_cond.critique }}</div></div>
+  <div class="card kpi"><div class="label">En bon état</div><div class="value" style="color:var(--bon)">{{ by_cond.bon }}</div></div>
+  <div class="card kpi warn"><div class="label">À inspecter (&gt; 1 an ou jamais)</div><div class="value">{{ stale }}</div></div>
+</div>
+
+<div class="card" style="margin-bottom:1rem">
+  <h2>Par type d'ouvrage</h2>
+  <div class="kind-chips">
+    {% for k, label in kinds.items() %}
+    <a class="kchip {{ 'on' if kind == k }}" href="{{ url_for('ouvrages.index', **dict(args, kind=(none if kind == k else k), page=none)) }}">{{ label }} <b>{{ by_kind[k] }}</b></a>
+    {% endfor %}
+  </div>
+  {% if total %}
+  <div class="stack" style="margin-top:.9rem">{% for k, label in conditions.items() if by_cond[k] %}<span title="{{ label }} : {{ by_cond[k] }}" style="width:{{ by_cond[k] / total * 100 }}%;background:{{ cond_colors[k] }}"></span>{% endfor %}</div>
+  <div class="legend">{% for k, label in conditions.items() %}<span><i class="dot" style="background:{{ cond_colors[k] }}"></i>{{ label }} ({{ by_cond[k] }})</span>{% endfor %}</div>
+  {% endif %}
+</div>
+
+<form class="card filters" method="get">
+  <input type="text" name="q" value="{{ q }}" placeholder="Rechercher (référence, route, observations)…">
+  <select name="route"><option value="">Toutes les routes</option>
+    {% for r in routes %}<option value="{{ r.id }}" {{ 'selected' if r.id == route_id }}>{{ r.code }} – {{ r.name[:28] }}</option>{% endfor %}</select>
+  <select name="island"><option value="">Toutes les îles</option>{% for i in islands %}<option {{ 'selected' if i == island }}>{{ i }}</option>{% endfor %}</select>
+  <select name="kind"><option value="">Tous les types</option>{% for k, v in kinds.items() %}<option value="{{ k }}" {{ 'selected' if k == kind }}>{{ v }}</option>{% endfor %}</select>
+  <select name="condition"><option value="">Tous les états</option>{% for k, v in conditions.items() %}<option value="{{ k }}" {{ 'selected' if k == cond }}>{{ v }}</option>{% endfor %}</select>
+  <button class="btn" type="submit">Filtrer</button>
+  {% if args %}<a class="btn ghost" href="{{ url_for('ouvrages.index') }}">Réinitialiser</a>{% endif %}
+</form>
+
+<div class="card">
+  {% if pagination.items %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Référence</th><th>Route</th><th>Type</th><th>Dimensions</th><th>État</th><th>Dernière inspection</th><th></th></tr></thead>
+    <tbody>
+    {% for o in pagination.items %}
+      <tr>
+        <td><strong>{{ o.ref or ('#' ~ o.id) }}</strong>{% if o.has_point %}<div class="hint">📍 localisé</div>{% endif %}</td>
+        <td><a class="code-link" href="{{ url_for('routes.detail', route_id=o.route.id) }}"><strong>{{ o.route.code }}</strong></a>
+          <div class="hint">{% if o.pk_km is not none %}PK {{ '%.3f'|format(o.pk_km) }} km{% else %}PK non renseigné{% endif %}{% if o.side %} · {{ o.side }}{% endif %}</div></td>
+        <td>{{ kinds.get(o.kind, o.kind) }}{% if o.quantity and o.quantity > 1 %} <span class="hint">× {{ o.quantity }}</span>{% endif %}
+          {% if o.material %}<div class="hint">{{ materials.get(o.material, o.material) }}</div>{% endif %}</td>
+        <td>{% if o.length_m or o.width_m %}{{ '%g'|format(o.length_m) if o.length_m else '?' }} × {{ '%g'|format(o.width_m) if o.width_m else '?' }} m{% else %}—{% endif %}</td>
+        <td><span class="badge" style="background:{{ cond_colors[o.condition] }}">{{ conditions[o.condition] }}</span>
+          {% set dl = o.defect_list %}{% if dl %}<div class="hint" title="{{ dl|map('extract', defects)|join(', ') }}">{{ dl|length }} désordre{{ 's' if dl|length > 1 }}</div>{% endif %}</td>
+        <td>{{ o.last_inspection.strftime('%d/%m/%Y') if o.last_inspection else '—' }}</td>
+        <td class="actions-cell"><div class="row-actions"><a class="btn ghost" href="{{ url_for('ouvrages.edit', item_id=o.id) }}">{{ 'Modifier' if can('ouvrages','write') else 'Détail' }}</a></div></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if pagination.pages > 1 %}
+  <div class="pager">
+    {% if pagination.has_prev %}<a class="btn ghost" href="{{ url_for('ouvrages.index', **dict(args, page=pagination.prev_num)) }}">← Précédent</a>{% endif %}
+    <span>Page {{ pagination.page }} / {{ pagination.pages }}</span>
+    {% if pagination.has_next %}<a class="btn ghost" href="{{ url_for('ouvrages.index', **dict(args, page=pagination.next_num)) }}">Suivant →</a>{% endif %}
+  </div>{% endif %}
+  {% else %}<div class="empty">Aucun ouvrage.{% if can('ouvrages','write') %} <a href="{{ url_for('ouvrages.create') }}">Enregistrer le premier</a>{% endif %}</div>{% endif %}
+</div>
+{% endblock %}

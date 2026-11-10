@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Travaux{% endblock %}
+{% block content %}
+{% set st_colors = {'etude':'var(--muted)','appel_offres':'var(--accent)','en_cours':'var(--moyen)','suspendu':'var(--mauvais)','receptionne':'var(--bon)','annule':'var(--muted)'} %}
+{% macro kmf(n) %}{{ '{:,}'.format(n|int).replace(',', ' ') }} KMF{% endmacro %}
+<div class="page-head">
+  <div><h1>Travaux</h1><p>{{ pagination.total }} chantier{{ 's' if pagination.total > 1 }}</p></div>
+  {% if can('travaux','write') %}<a class="btn" href="{{ url_for('works.create') }}">+ Nouveau chantier</a>{% endif %}
+</div>
+
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Chantiers en cours</div><div class="value">{{ st.active }}</div></div>
+  <div class="card kpi warn"><div class="label">En retard</div><div class="value">{{ st.late }}</div></div>
+  <div class="card kpi"><div class="label">Réceptionnés</div><div class="value">{{ st.done }}</div></div>
+  <div class="card kpi"><div class="label">Avancement moyen (en cours)</div><div class="value">{{ st.avg }} <span class="unit">%</span></div></div>
+  <div class="card kpi"><div class="label">Budget total</div><div class="value" style="font-size:1.4rem">{{ kmf(st.budget) }}</div></div>
+  <div class="card kpi {{ 'warn' if st.over }}"><div class="label">Dépensé{% if st.over %} · {{ st.over }} dépassement{{ 's' if st.over > 1 }}{% endif %}</div>
+    <div class="value" style="font-size:1.4rem">{{ kmf(st.spent) }}
+      {% if st.budget %}<span class="unit">({{ (st.spent / st.budget * 100)|round|int }} %)</span>{% endif %}</div></div>
+</div>
+
+<form class="card filters" method="get">
+  <input type="text" name="q" value="{{ q }}" placeholder="Rechercher (route, intitulé, entreprise, bailleur)…">
+  <select name="status"><option value="">Tous les statuts</option>
+    {% for k, v in statuses.items() %}<option value="{{ k }}" {{ 'selected' if k == status }}>{{ v }}{% if counts.get(k) %} ({{ counts[k] }}){% endif %}</option>{% endfor %}</select>
+  <select name="kind"><option value="">Toutes les natures</option>
+    {% for k, v in kinds.items() %}<option value="{{ k }}" {{ 'selected' if k == kind }}>{{ v }}</option>{% endfor %}</select>
+  <button class="btn" type="submit">Filtrer</button>
+  {% if q or status or kind %}<a class="btn ghost" href="{{ url_for('works.index') }}">Réinitialiser</a>{% endif %}
+</form>
+
+<div class="card">
+  {% if pagination.items %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>Route</th><th>Chantier</th><th>Statut</th><th>Avancement</th><th>Fin prévue</th><th>Budget</th><th></th></tr></thead>
+    <tbody>
+    {% for w in pagination.items %}
+      <tr>
+        <td><a class="code-link" href="{{ url_for('routes.detail', route_id=w.route.id) }}"><strong>{{ w.route.code }}</strong></a></td>
+        <td>{{ w.title }}<div class="hint">{{ kinds[w.kind] }}{% if w.marche %} · <a class="code-link" href="{{ url_for('marches.detail', item_id=w.marche.id) }}">{{ w.marche.number }}</a>{% endif %}{% if w.contractor %} · {{ w.contractor }}{% endif %}{% if w.pk_start is not none and w.pk_end is not none %} · PK {{ '%g'|format(w.pk_start) }}–{{ '%g'|format(w.pk_end) }}{% endif %}</div></td>
+        <td><span class="badge" style="background:{{ st_colors[w.status] }}">{{ statuses[w.status] }}</span></td>
+        <td style="min-width:120px"><div class="bar" title="{{ w.progress }} %"><span style="width:{{ w.progress }}%;background:{{ 'var(--bon)' if w.status == 'receptionne' else 'var(--primary)' }}"></span></div><div class="hint">{{ w.progress }} %</div></td>
+        <td>{% if w.end_planned %}{{ w.end_planned.strftime('%d/%m/%Y') }}{% else %}—{% endif %}{% if w.is_late %} <span class="badge" style="background:var(--critique)">En retard</span>{% endif %}</td>
+        <td>{% if w.budget_kmf is not none %}{{ kmf(w.budget_kmf) }}{% else %}—{% endif %}{% if w.over_budget %} <span class="badge" style="background:var(--mauvais)">Dépassé</span>{% endif %}
+          {% if w.spent_kmf is not none %}<div class="hint">dépensé : {{ kmf(w.spent_kmf) }}</div>{% endif %}</td>
+        <td class="actions-cell"><div class="row-actions"><a class="btn ghost" href="{{ url_for('works.edit', item_id=w.id) }}">Détail</a></div></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if pagination.pages > 1 %}
+  <div class="pager">
+    {% if pagination.has_prev %}<a class="btn ghost" href="{{ url_for('works.index', **dict(args, page=pagination.prev_num)) }}">← Précédent</a>{% endif %}
+    <span>Page {{ pagination.page }} / {{ pagination.pages }}</span>
+    {% if pagination.has_next %}<a class="btn ghost" href="{{ url_for('works.index', **dict(args, page=pagination.next_num)) }}">Suivant →</a>{% endif %}
+  </div>{% endif %}
+  {% else %}<div class="empty">Aucun chantier. {% if can('travaux','write') %}<a href="{{ url_for('works.create') }}">Enregistrer le premier</a>{% endif %}</div>{% endif %}
+</div>
+{% endblock %}

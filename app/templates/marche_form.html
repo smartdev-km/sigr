@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier le marché' if item else 'Nouveau marché' }}{% endblock %}
+{% macro field(f) %}
+  <div>{{ f.label }}{{ f(**kwargs) }}{% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% macro money(f) %}
+  <div>{{ f.label }}<div class="input-group">{{ f(min="0", step="1", inputmode="numeric", placeholder="0") }}<span class="suffix">KMF</span></div>
+    {% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% macro date_field(f) %}
+  <div class="date-field">{{ f.label }}
+    <div class="input-group">{{ f(type="date") }}<button type="button" class="suffix date-btn" aria-label="Ouvrir le calendrier">📅</button></div>
+    <div class="chips"><button type="button" data-set="{{ f.name }}" data-add="0">Aujourd'hui</button><button type="button" data-clear="{{ f.name }}">Effacer</button></div>
+    {% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Modifier le marché ' + item.number if item else 'Nouveau marché' }}</h1>
+  <a class="btn ghost" href="{{ url_for('marches.detail', item_id=item.id) if item else url_for('marches.index') }}">← Retour</a>
+</div>
+<form class="card" method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <h2>Identification</h2>
+  <div class="form-grid">
+    {{ field(form.number) }}
+    {{ field(form.entreprise_id) }}
+    {{ field(form.status) }}
+  </div>
+  {{ field(form.title) }}
+  <div class="form-grid">{{ field(form.funder) }}{{ field(form.mode) }}</div>
+  <h2 class="sec">Montant et calendrier</h2>
+  <div class="form-grid">
+    {{ money(form.amount_kmf) }}
+    {{ date_field(form.signed_on) }}
+    {{ date_field(form.start_order_on) }}
+    <div>{{ form.duration_days.label }}<div class="input-group">{{ form.duration_days(min="0", step="1", inputmode="numeric", placeholder="0") }}<span class="suffix">jours</span></div>
+      {% for e in form.duration_days.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+      <p class="hint">La fin prévue = ordre de service + délai (+ prolongations par avenants).</p></div>
+  </div>
+  {{ field(form.description) }}
+  <div class="actions"><button class="btn" type="submit">{{ 'Enregistrer' if item else 'Créer le marché' }}</button></div>
+</form>
+{% if item and current_user.may_delete %}
+<form class="card danger-zone" method="post" action="{{ url_for('marches.delete', item_id=item.id) }}"
+      onsubmit="return confirm('Supprimer le marché {{ item.number }} avec ses avenants et ses paiements ?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <h2>Zone dangereuse</h2><p class="hint">Les avenants et les paiements du marché sont supprimés. Les chantiers liés sont conservés.</p>
+  <button class="btn danger" type="submit">Supprimer ce marché</button>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/dates.js') }}"></script>{% endblock %}

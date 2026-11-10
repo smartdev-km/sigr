@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier le compte' if item else 'Nouveau compte' }}{% endblock %}
+{% macro field(f) %}
+  <div>{{ f.label }}{{ f(**kwargs) }}{% for e in f.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+{% endmacro %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ 'Modifier ' + item.full_name if item else 'Nouveau compte utilisateur' }}</h1>
+  <a class="btn ghost" href="{{ url_for('users.index') }}">← Retour</a>
+</div>
+<form class="card" method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <h2>Identité</h2>
+  <div class="form-grid">
+    {{ field(form.full_name) }}
+    {{ field(form.username, autocomplete="off") }}
+    {{ field(form.email, type="text") }}
+  </div>
+
+  <h2 class="sec">Connexion</h2>
+  <div class="form-grid">
+    <div><label for="password">{{ form.password.label.text }}{% if item %} <span class="hint">(laisser vide pour ne pas changer)</span>{% endif %}</label>
+      <div class="input-group">{{ form.password(autocomplete="new-password") }}<button type="button" class="suffix geo-btn" id="gen-pass" title="Générer un mot de passe">🎲</button><button type="button" class="suffix geo-btn" id="show-pass" title="Afficher">👁</button></div>
+      {% for e in form.password.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+    {{ field(form.role) }}
+  </div>
+  <label class="check">{{ form.must_change_password() }} {{ form.must_change_password.label.text }}</label>
+  <label class="check">{{ form.is_active_account() }} {{ form.is_active_account.label.text }}</label>
+
+  <h2 class="sec">Permissions</h2>
+  <div class="presets no-print">
+    <span class="hint">Profils rapides :</span>
+    {% for k, p in presets.items() %}<button type="button" class="chip-btn" data-preset="{{ k }}">{{ p.label }}</button>{% endfor %}
+  </div>
+  <div id="perm-matrix">
+    <table class="perm-table">
+      <thead><tr><th>Module</th><th colspan="3">Niveau d'accès</th></tr></thead>
+      <tbody>
+      {% for m, f in form.perm_fields() %}
+        <tr><td><strong>{{ f.label.text }}</strong>{% if m == 'routes' %}<div class="hint">La consultation des routes est toujours possible.</div>{% endif %}</td>
+          <td colspan="3"><div class="chips-check">{% for sub in f %}<label class="chk">{{ sub() }}<span>{{ sub.label.text }}</span></label>{% endfor %}</div></td></tr>
+        {% for e in f.errors %}<tr><td colspan="4"><div class="field-error">{{ e }}</div></td></tr>{% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+    <label class="check">{{ form.can_delete() }} {{ form.can_delete.label.text }}</label>
+  </div>
+  <p class="hint" id="admin-note" hidden>Un administrateur a tous les droits, y compris la gestion des utilisateurs : les permissions ci-dessus sont ignorées.</p>
+
+  <div class="actions"><button class="btn" type="submit">{{ 'Enregistrer' if item else 'Créer le compte' }}</button></div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  (function () {
+    var PRESETS = {{ presets|tojson }};
+    var role = document.querySelector('[name=role]'), matrix = document.getElementById('perm-matrix'),
+        note = document.getElementById('admin-note'), pw = document.querySelector('[name=password]');
+    function sync() { var a = role.value === 'admin'; matrix.classList.toggle('dimmed', a); note.hidden = !a; }
+    role.addEventListener('change', sync); sync();
+    document.querySelectorAll('[data-preset]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var p = PRESETS[b.dataset.preset];
+        role.value = 'agent'; sync();
+        Object.keys(p.perms).forEach(function (m) {
+          var r = document.querySelector('[name=perm_' + m + '][value=' + p.perms[m] + ']'); if (r) r.checked = true;
+        });
+        document.querySelector('[name=can_delete]').checked = !!p.delete;
+      });
+    });
+    document.getElementById('gen-pass').addEventListener('click', function () {
+      var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789', out = '', a = new Uint32Array(12);
+      crypto.getRandomValues(a); a.forEach(function (n) { out += chars[n % chars.length]; });
+      pw.value = out; pw.type = 'text';
+    });
+    document.getElementById('show-pass').addEventListener('click', function () { pw.type = pw.type === 'password' ? 'text' : 'password'; });
+  })();
+</script>
+{% endblock %}

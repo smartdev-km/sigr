@@ -1,0 +1,4 @@
+<div class="tabs no-print">
+  <a class="tab {{ 'on' if request.blueprint == 'marches' }}" href="{{ url_for('marches.index') }}">Marchés</a>
+  <a class="tab {{ 'on' if request.blueprint == 'entreprises' }}" href="{{ url_for('entreprises.index') }}">Entreprises</a>
+</div>

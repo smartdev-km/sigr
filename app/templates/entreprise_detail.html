@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ e.name }}{% endblock %}
+{% block content %}
+{% set st_colors = {'preparation':'var(--muted)','en_cours':'var(--moyen)','suspendu':'var(--mauvais)','reception_provisoire':'var(--accent)','reception_definitive':'var(--bon)','resilie':'var(--critique)'} %}
+<div class="page-head">
+  <div><h1>{{ e.name }}{% if e.acronym %} <span class="hint" style="font-size:1rem">({{ e.acronym }})</span>{% endif %}
+    {% if not e.active %}<span class="badge" style="background:var(--muted);vertical-align:middle">Inactive</span>{% endif %}</h1>
+    <p>{{ e.specialties or 'Spécialités non renseignées' }}</p></div>
+  <div class="head-actions">
+    <a class="btn ghost" href="{{ url_for('entreprises.index') }}">← Entreprises</a>
+    {% if can('marches','write') %}<a class="btn ghost" href="{{ url_for('marches.create', entreprise_id=e.id) }}">+ Marché</a>
+    <a class="btn" href="{{ url_for('entreprises.edit', item_id=e.id) }}">Modifier</a>{% endif %}
+  </div>
+</div>
+<div class="grid kpis">
+  <div class="card kpi"><div class="label">Marchés</div><div class="value">{{ totals.count }}</div></div>
+  <div class="card kpi"><div class="label">En cours</div><div class="value">{{ totals.open }}</div></div>
+  <div class="card kpi warn"><div class="label">En retard</div><div class="value">{{ totals.late }}</div></div>
+  <div class="card kpi"><div class="label">Montant total</div><div class="value" style="font-size:1.3rem">{{ kmf(totals.amount) }}</div></div>
+  <div class="card kpi"><div class="label">Payé</div><div class="value" style="font-size:1.3rem">{{ kmf(totals.paid) }}</div></div>
+</div>
+<div class="grid cols">
+  <div class="card"><h2>Coordonnées</h2>
+    <dl class="info">
+      <dt>RCCM / NIF</dt><dd>{{ e.registration or '—' }}</dd>
+      <dt>Contact</dt><dd>{{ e.contact_name or '—' }}</dd>
+      <dt>Téléphone</dt><dd>{{ e.phone or '—' }}</dd>
+      <dt>E-mail</dt><dd>{{ e.email or '—' }}</dd>
+      <dt>Adresse</dt><dd>{{ e.address or '—' }}{% if e.island %} · {{ e.island }}{% endif %}</dd>
+      <dt>Agrément</dt><dd>{{ 'Agréée / référencée' if e.approved else 'Non agréée' }}</dd>
+    </dl>{% if e.notes %}<p class="notes" style="margin-top:.8rem">{{ e.notes }}</p>{% endif %}</div>
+  <div class="card"><h2>Marchés</h2>
+    {% if marches %}<table><tbody>{% for m in marches %}
+      <tr><td><a class="code-link" href="{{ url_for('marches.detail', item_id=m.id) }}"><strong>{{ m.number }}</strong></a><div class="hint">{{ m.title }}</div></td>
+        <td><span class="badge" style="background:{{ st_colors[m.status] }}">{{ statuses[m.status] }}</span>{% if m.is_late %} <span class="badge" style="background:var(--critique)">Retard</span>{% endif %}</td>
+        <td style="text-align:right">{{ kmf(m.current_amount) }}<div class="hint">{{ m.paid_rate }} % payé</div></td></tr>{% endfor %}</tbody></table>
+    {% else %}<div class="empty">Aucun marché.</div>{% endif %}</div>
+</div>
+{% endblock %}
