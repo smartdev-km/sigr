@@ -59,6 +59,12 @@ def create_app(config_class=Config):
     app.register_blueprint(entreprises_bp)
     init_access(app)
 
+    @app.route("/favicon.ico")
+    def favicon():
+        from flask import send_from_directory
+        return send_from_directory(os.path.join(app.root_path, "static"), "favicon.ico",
+                                   mimetype="image/vnd.microsoft.icon", max_age=86400)
+
     @app.route("/healthz")
     def healthz():
         """Sonde de santé (Render) : vérifie aussi la connexion à la base."""

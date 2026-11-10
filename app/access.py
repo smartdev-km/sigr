@@ -12,7 +12,7 @@ BLUEPRINT_MODULE = {
 def init_access(app):
     @app.before_request
     def guard():
-        if request.endpoint is None or request.endpoint == "static" or not current_user.is_authenticated:
+        if request.endpoint in (None, "static", "favicon", "healthz") or not current_user.is_authenticated:
             return None  # les vues protégées par @login_required gèrent l'anonyme
 
         if not current_user.is_active:  # compte désactivé pendant la session
