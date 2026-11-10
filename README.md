@@ -57,7 +57,7 @@ Sur Mac, le port 5000 peut être pris par AirPlay : utilisez par exemple `PORT=5
 - Un **administrateur** a tous les droits et gère les comptes.
 - Les autres comptes reçoivent, pour chaque module, un niveau : *Aucun accès*, *Lecture seule* ou
   *Lecture et écriture*, plus un droit de suppression distinct. La consultation des routes est toujours possible.
-- Un compte peut être désactivé, et le changement de mot de passe peut être imposé à la première connexion.
+- Un compte peut être désactivé, et le changement de mot de passe peut être imposé à la première connexion des comptes non administrateurs (case à cocher à la création).
 - Les droits sont contrôlés côté serveur (`app/access.py`), pas seulement masqués dans l'interface.
 
 ## Déploiement

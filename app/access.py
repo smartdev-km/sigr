@@ -21,7 +21,7 @@ def init_access(app):
             return redirect(url_for("auth.login"))
 
         bp = request.blueprint
-        if current_user.must_change_password and bp not in ("profile", "auth"):
+        if current_user.must_change_password and not current_user.is_admin and bp not in ("profile", "auth"):
             flash("Pour des raisons de sécurité, définissez votre propre mot de passe.", "warning")
             return redirect(url_for("profile.index"))
 

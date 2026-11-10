@@ -30,7 +30,7 @@ git push -u origin main
 ## 3. Première connexion
 
 - Identifiant : `ADMIN_USERNAME` (par défaut `admin`), mot de passe : `ADMIN_PASSWORD`.
-- Le changement du mot de passe est exigé à la première connexion.
+- L'administrateur n'est pas obligé de changer son mot de passe (il peut le faire quand il veut dans **Mon profil**).
 - L'administrateur n'est créé que si aucun administrateur n'existe : modifier `ADMIN_PASSWORD` plus tard ne change pas un compte existant.
 - Les autres comptes se créent ensuite dans **Utilisateurs**.
 

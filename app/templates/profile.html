@@ -13,14 +13,14 @@
   </div>
 </div>
 
-{% if current_user.must_change_password %}
+{% if current_user.must_change_password and not current_user.is_admin %}
 <div class="force-pw-banner">
   <strong>🔒 Action requise : choisissez votre mot de passe</strong>
   <p>Remplissez le formulaire « Changer le mot de passe » ci-dessous. Le <em>mot de passe actuel</em> est celui qui vous a été communiqué
   (celui de votre première connexion). Tant que ce n'est pas fait, les autres pages du site restent bloquées.</p>
 </div>
 {% endif %}
-<div class="profile-stack {{ 'force-pw' if current_user.must_change_password }}">
+<div class="profile-stack {{ 'force-pw' if current_user.must_change_password and not current_user.is_admin }}">
 <form class="card" method="post" action="{{ url_for('profile.update_info') }}" novalidate style="margin-bottom:1rem">
   {{ pform.hidden_tag() }}
   <h2>Informations personnelles</h2>
@@ -50,7 +50,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
-{% if current_user.must_change_password %}
+{% if current_user.must_change_password and not current_user.is_admin %}
 <script>
   (function () {
     var f = document.querySelector('[name="w-current_password"]');

@@ -118,11 +118,11 @@ def register_cli(app):
             click.echo("ADMIN_PASSWORD absent ou trop court (8 caractères min.) : aucun administrateur créé.")
             return
         user = User(username=username, full_name=os.environ.get("ADMIN_NAME", "Administrateur"),
-                    role="admin", must_change_password=True)
+                    role="admin", must_change_password=False)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
-        click.echo(f"Administrateur '{username}' créé (changement du mot de passe exigé à la 1re connexion).")
+        click.echo(f"Administrateur '{username}' créé.")
 
     @app.cli.command("create-admin")
     @click.option("--username", prompt=True)
