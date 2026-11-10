@@ -13,6 +13,14 @@
   </div>
 </div>
 
+{% if current_user.must_change_password %}
+<div class="force-pw-banner">
+  <strong>🔒 Action requise : choisissez votre mot de passe</strong>
+  <p>Remplissez le formulaire « Changer le mot de passe » ci-dessous. Le <em>mot de passe actuel</em> est celui qui vous a été communiqué
+  (celui de votre première connexion). Tant que ce n'est pas fait, les autres pages du site restent bloquées.</p>
+</div>
+{% endif %}
+<div class="profile-stack {{ 'force-pw' if current_user.must_change_password }}">
 <form class="card" method="post" action="{{ url_for('profile.update_info') }}" novalidate style="margin-bottom:1rem">
   {{ pform.hidden_tag() }}
   <h2>Informations personnelles</h2>
@@ -28,7 +36,7 @@
   <div class="actions"><button class="btn" type="submit">Enregistrer</button></div>
 </form>
 
-<form class="card" method="post" action="{{ url_for('profile.change_password') }}" novalidate>
+<form class="card pw-card" id="mot-de-passe" method="post" action="{{ url_for('profile.change_password') }}" novalidate>
   {{ wform.hidden_tag() }}
   <h2>Changer le mot de passe</h2>
   <div class="form-grid">
@@ -39,4 +47,15 @@
   <p class="hint">8 caractères minimum.</p>
   <div class="actions"><button class="btn" type="submit">Modifier le mot de passe</button></div>
 </form>
+</div>
+{% endblock %}
+{% block scripts %}
+{% if current_user.must_change_password %}
+<script>
+  (function () {
+    var f = document.querySelector('[name="w-current_password"]');
+    if (f) { f.focus({ preventScroll: true }); document.getElementById('mot-de-passe').scrollIntoView({ block: 'center' }); }
+  })();
+</script>
+{% endif %}
 {% endblock %}

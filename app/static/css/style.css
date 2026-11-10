@@ -376,3 +376,9 @@ a.hrow:hover .hl,a.wrow:hover .wt{color:var(--primary)}
 @media (max-width:760px){.dash-cols{grid-template-columns:1fr}.hrow{grid-template-columns:5.5rem 1fr 3.8rem}.island-seg{overflow-x:auto}}
 
 .dash-kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+
+/* Changement de mot de passe obligatoire */
+.profile-stack{display:flex;flex-direction:column}
+.profile-stack.force-pw .pw-card{order:-1;margin-bottom:1rem;border:2px solid var(--primary);box-shadow:0 0 0 4px rgba(11,110,79,.12)}
+.force-pw-banner{background:rgba(224,176,32,.15);border:1px solid var(--moyen);border-radius:10px;padding:.8rem 1rem;margin-bottom:1rem}
+.force-pw-banner p{margin:.3rem 0 0;font-size:.9rem}
